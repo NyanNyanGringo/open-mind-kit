@@ -1,0 +1,32 @@
+{
+  "cli_version": "0.4.5",
+  "checkpoint_id": "0d3562522ab6",
+  "session_id": "4abc1ce6-5d8d-47a0-865f-701346364230",
+  "strategy": "manual-commit",
+  "created_at": "2026-02-18T21:16:51.414221Z",
+  "branch": "001-ai-study-platform",
+  "checkpoints_count": 2,
+  "files_touched": [
+    "CLAUDE.md"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "b5608d71b082",
+  "transcript_identifier_at_start": "6b94a1da-069a-456e-b62e-d6753ac7771a",
+  "token_usage": {
+    "input_tokens": 141,
+    "cache_creation_tokens": 350051,
+    "cache_read_tokens": 6249316,
+    "output_tokens": 26655,
+    "api_call_count": 70
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-02-18T21:16:51.01147Z",
+    "agent_lines": 9,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 9,
+    "agent_percentage": 100
+  },
+  "transcript_path": ".claude/projects/-Users-user-github-study-kit/4abc1ce6-5d8d-47a0-865f-701346364230.jsonl"
+}

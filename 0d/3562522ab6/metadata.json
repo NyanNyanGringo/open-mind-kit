@@ -1,0 +1,26 @@
+{
+  "cli_version": "0.4.5",
+  "checkpoint_id": "0d3562522ab6",
+  "strategy": "manual-commit",
+  "branch": "001-ai-study-platform",
+  "checkpoints_count": 2,
+  "files_touched": [
+    "CLAUDE.md"
+  ],
+  "sessions": [
+    {
+      "metadata": "/0d/3562522ab6/0/metadata.json",
+      "transcript": "/0d/3562522ab6/0/full.jsonl",
+      "context": "/0d/3562522ab6/0/context.md",
+      "content_hash": "/0d/3562522ab6/0/content_hash.txt",
+      "prompt": "/0d/3562522ab6/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 141,
+    "cache_creation_tokens": 350051,
+    "cache_read_tokens": 6249316,
+    "output_tokens": 26655,
+    "api_call_count": 70
+  }
+}
