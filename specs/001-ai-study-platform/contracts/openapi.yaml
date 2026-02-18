@@ -1,0 +1,688 @@
+openapi: "3.1.0"
+info:
+  title: AI Study Platform API
+  version: "1.0.0"
+  description: |
+    REST API для локального AI-приложения для обучения.
+    Все данные хранятся локально. Базовый URL: http://localhost:8000/api/v1
+
+servers:
+  - url: http://localhost:8000/api/v1
+
+# ═══════════════════════════════════════════════════════════════════════════
+# ОБЩИЕ СХЕМЫ
+# ═══════════════════════════════════════════════════════════════════════════
+components:
+  schemas:
+    ErrorResponse:
+      type: object
+      required: [error, message]
+      properties:
+        error:   { type: string, description: "Машинный код ошибки" }
+        message: { type: string, description: "Человекочитаемое описание" }
+        details: { type: object, description: "Дополнительный контекст" }
+
+    Workspace:
+      type: object
+      required: [id, name, created_at]
+      properties:
+        id:          { type: string, format: uuid }
+        name:        { type: string, maxLength: 200 }
+        description: { type: string, nullable: true }
+        created_at:  { type: string, format: date-time }
+        updated_at:  { type: string, format: date-time }
+
+    Lesson:
+      type: object
+      required: [id, workspace_id, name, order_index, created_at]
+      properties:
+        id:           { type: string, format: uuid }
+        workspace_id: { type: string, format: uuid }
+        name:         { type: string }
+        order_index:  { type: integer, minimum: 0 }
+        created_at:   { type: string, format: date-time }
+        updated_at:   { type: string, format: date-time }
+
+    SourceFile:
+      type: object
+      required: [id, lesson_id, original_name, mime_type, size_bytes, processing_status, uploaded_at]
+      properties:
+        id:                { type: string, format: uuid }
+        lesson_id:         { type: string, format: uuid }
+        original_name:     { type: string }
+        mime_type:         { type: string }
+        size_bytes:        { type: integer }
+        processing_status: { type: string, enum: [queued, processing, completed, failed] }
+        error_message:     { type: string, nullable: true }
+        uploaded_at:       { type: string, format: date-time }
+        processed_at:      { type: string, format: date-time, nullable: true }
+
+    KnowledgeItem:
+      type: object
+      required: [id, lesson_id, question, answer, due_date, state, mastery_score]
+      properties:
+        id:              { type: string, format: uuid }
+        lesson_id:       { type: string, format: uuid }
+        source_file_id:  { type: string, format: uuid, nullable: true }
+        question:        { type: string }
+        answer:          { type: string }
+        context:         { type: string, nullable: true }
+        due_date:        { type: string, format: date }
+        state:           { type: string, enum: [new, learning, review, relearning] }
+        mastery_score:   { type: number, minimum: 0, maximum: 100, description: "R(t,S)*100" }
+        total_reviews:   { type: integer }
+        correct_reviews: { type: integer }
+        lapse_count:     { type: integer }
+        streak:          { type: integer }
+        created_at:      { type: string, format: date-time }
+
+    LearningSession:
+      type: object
+      required: [id, session_type, filter_config, started_at, total_items, correct_items]
+      properties:
+        id:            { type: string, format: uuid }
+        session_type:  { type: string, enum: [flashcards, test, chat] }
+        filter_config: { $ref: '#/components/schemas/FilterConfig' }
+        started_at:    { type: string, format: date-time }
+        ended_at:      { type: string, format: date-time, nullable: true }
+        total_items:   { type: integer }
+        correct_items: { type: integer }
+
+    FilterConfig:
+      type: object
+      required: [mode]
+      properties:
+        lesson_ids: { type: array, items: { type: string, format: uuid } }
+        mode:       { type: string, enum: [all, weak_areas, date_range, new_only] }
+        date_from:  { type: string, format: date, nullable: true }
+        date_to:    { type: string, format: date, nullable: true }
+
+    AgentStatus:
+      type: object
+      required: [provider, status]
+      properties:
+        provider:           { type: string, enum: [anthropic, openai] }
+        status:             { type: string, enum: [connected, expired, error, not_configured] }
+        provider_account_id: { type: string, nullable: true }
+        updated_at:         { type: string, format: date-time, nullable: true }
+
+    ProcessingJob:
+      type: object
+      required: [id, source_file_id, status, progress_pct]
+      properties:
+        id:             { type: string }
+        source_file_id: { type: string, format: uuid }
+        status:         { type: string, enum: [queued, processing, completed, failed] }
+        progress_pct:   { type: integer, minimum: 0, maximum: 100 }
+        stage:          { type: string, nullable: true }
+
+    ReviewRequest:
+      type: object
+      required: [knowledge_item_id, rating]
+      properties:
+        knowledge_item_id: { type: string, format: uuid }
+        rating: { type: integer, enum: [1, 2, 3, 4], description: "1=Again 2=Hard 3=Good 4=Easy" }
+
+    DashboardStats:
+      type: object
+      properties:
+        total_items:      { type: integer }
+        not_started:      { type: integer }
+        in_progress:      { type: integer }
+        mature:           { type: integer }
+        due_today:        { type: integer }
+        avg_mastery_pct:  { type: number }
+        lifetime_reviews: { type: integer }
+        sessions_history:
+          type: array
+          items:
+            type: object
+            properties:
+              date:         { type: string, format: date }
+              session_count: { type: integer }
+              avg_accuracy: { type: number }
+
+    PaginatedKnowledgeItems:
+      type: object
+      required: [items, total, page, page_size]
+      properties:
+        items:     { type: array, items: { $ref: '#/components/schemas/KnowledgeItem' } }
+        total:     { type: integer }
+        page:      { type: integer }
+        page_size: { type: integer }
+
+# ═══════════════════════════════════════════════════════════════════════════
+# ПУТИ
+# ═══════════════════════════════════════════════════════════════════════════
+paths:
+
+  # ── Agent Management ──────────────────────────────────────────────────────
+
+  /agent/status:
+    get:
+      summary: Статус подключённых агентов
+      operationId: getAgentStatus
+      responses:
+        "200":
+          description: Список статусов по провайдерам
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/AgentStatus' }
+
+  /agent/connect/anthropic:
+    post:
+      summary: Подключить Anthropic через API-ключ (paste-flow)
+      operationId: connectAnthropic
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [api_key]
+              properties:
+                api_key: { type: string, description: "sk-ant-..." }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AgentStatus' }
+        "400":
+          description: Неверный API-ключ
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /agent/connect/openai/start:
+    get:
+      summary: Начать PKCE OAuth2 для OpenAI (возвращает authorization URL)
+      operationId: startOpenAIOAuth
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  auth_url:    { type: string, format: uri }
+                  callback_port: { type: integer }
+
+  /agent/connect/openai/callback:
+    get:
+      summary: OAuth2 callback (вызывается браузером автоматически)
+      operationId: openAIOAuthCallback
+      parameters:
+        - name: code
+          in: query
+          required: true
+          schema: { type: string }
+        - name: state
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: HTML-страница "Авторизация завершена"
+
+  /agent/disconnect/{provider}:
+    delete:
+      summary: Удалить учётные данные провайдера
+      operationId: disconnectAgent
+      parameters:
+        - name: provider
+          in: path
+          required: true
+          schema: { type: string, enum: [anthropic, openai] }
+      responses:
+        "204": { description: Удалено }
+
+  # ── Workspaces ────────────────────────────────────────────────────────────
+
+  /workspaces:
+    get:
+      summary: Список рабочих пространств
+      operationId: listWorkspaces
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Workspace' }
+    post:
+      summary: Создать рабочее пространство
+      operationId: createWorkspace
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name:        { type: string, maxLength: 200 }
+                description: { type: string, nullable: true }
+      responses:
+        "201":
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Workspace' }
+        "422":
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /workspaces/{workspace_id}:
+    get:
+      summary: Получить рабочее пространство
+      operationId: getWorkspace
+      parameters:
+        - name: workspace_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Workspace' }
+        "404":
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+    patch:
+      summary: Обновить название/описание
+      operationId: updateWorkspace
+      parameters:
+        - name: workspace_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:        { type: string }
+                description: { type: string, nullable: true }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Workspace' }
+    delete:
+      summary: Удалить рабочее пространство (каскадное удаление всех данных)
+      operationId: deleteWorkspace
+      parameters:
+        - name: workspace_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "204": { description: Удалено }
+
+  # ── Lessons ───────────────────────────────────────────────────────────────
+
+  /workspaces/{workspace_id}/lessons:
+    get:
+      summary: Список уроков в рабочем пространстве
+      operationId: listLessons
+      parameters:
+        - name: workspace_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Lesson' }
+    post:
+      summary: Создать урок
+      operationId: createLesson
+      parameters:
+        - name: workspace_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string }
+      responses:
+        "201":
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Lesson' }
+
+  /lessons/{lesson_id}:
+    get:
+      summary: Получить урок
+      operationId: getLesson
+      parameters:
+        - name: lesson_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Lesson' }
+    patch:
+      summary: Обновить урок
+      operationId: updateLesson
+      parameters:
+        - name: lesson_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:        { type: string }
+                order_index: { type: integer, minimum: 0 }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Lesson' }
+    delete:
+      summary: Удалить урок
+      operationId: deleteLesson
+      parameters:
+        - name: lesson_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "204": { description: Удалено }
+
+  # ── Files ─────────────────────────────────────────────────────────────────
+
+  /lessons/{lesson_id}/files:
+    get:
+      summary: Список файлов урока
+      operationId: listFiles
+      parameters:
+        - name: lesson_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/SourceFile' }
+    post:
+      summary: Загрузить файл в урок
+      operationId: uploadFile
+      parameters:
+        - name: lesson_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        "202":
+          description: Принято, обработка поставлена в очередь
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  source_file: { $ref: '#/components/schemas/SourceFile' }
+                  job_id:      { type: string }
+        "400":
+          description: Неподдерживаемый формат или файл слишком большой
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        "409":
+          description: Агент не подключён
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /files/{file_id}:
+    delete:
+      summary: Удалить файл и связанные knowledge items
+      operationId: deleteFile
+      parameters:
+        - name: file_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "204": { description: Удалено }
+
+  # ── Processing Jobs ───────────────────────────────────────────────────────
+
+  /jobs/{job_id}:
+    get:
+      summary: Статус задачи обработки файла
+      operationId: getJobStatus
+      parameters:
+        - name: job_id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProcessingJob' }
+
+  # ── Knowledge Items ───────────────────────────────────────────────────────
+
+  /lessons/{lesson_id}/items:
+    get:
+      summary: Список knowledge items урока (с пагинацией)
+      operationId: listItems
+      parameters:
+        - name: lesson_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: page
+          in: query
+          schema: { type: integer, default: 1, minimum: 1 }
+        - name: page_size
+          in: query
+          schema: { type: integer, default: 50, maximum: 200 }
+        - name: state
+          in: query
+          schema: { type: string, enum: [new, learning, review, relearning] }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PaginatedKnowledgeItems' }
+
+  /items/due:
+    get:
+      summary: Получить items для сессии (по filter_config)
+      operationId: getDueItems
+      parameters:
+        - name: lesson_ids
+          in: query
+          schema: { type: array, items: { type: string, format: uuid } }
+          style: form
+          explode: true
+        - name: mode
+          in: query
+          schema: { type: string, enum: [all, weak_areas, date_range, new_only], default: all }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 20, maximum: 100 }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/KnowledgeItem' }
+
+  # ── Learning Sessions ─────────────────────────────────────────────────────
+
+  /sessions:
+    post:
+      summary: Создать и начать сессию обучения
+      operationId: createSession
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [session_type, filter_config]
+              properties:
+                session_type:  { type: string, enum: [flashcards, test, chat] }
+                filter_config: { $ref: '#/components/schemas/FilterConfig' }
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  session: { $ref: '#/components/schemas/LearningSession' }
+                  items:   { type: array, items: { $ref: '#/components/schemas/KnowledgeItem' } }
+
+  /sessions/{session_id}/reviews:
+    post:
+      summary: Записать ответ на карточку
+      operationId: submitReview
+      parameters:
+        - name: session_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ReviewRequest' }
+      responses:
+        "200":
+          description: Обновлённый KnowledgeItem после применения FSRS
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/KnowledgeItem' }
+
+  /sessions/{session_id}/finish:
+    post:
+      summary: Завершить сессию
+      operationId: finishSession
+      parameters:
+        - name: session_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LearningSession' }
+
+  # ── Dashboard ─────────────────────────────────────────────────────────────
+
+  /dashboard/stats:
+    get:
+      summary: Общая статистика для дашборда
+      operationId: getDashboardStats
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DashboardStats' }
+
+  /dashboard/workspaces/{workspace_id}/stats:
+    get:
+      summary: Статистика по конкретному рабочему пространству
+      operationId: getWorkspaceStats
+      parameters:
+        - name: workspace_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DashboardStats' }
+
+  # ── Chat ──────────────────────────────────────────────────────────────────
+
+  /chat/sessions:
+    post:
+      summary: Начать чат-сессию в контексте уроков
+      operationId: createChatSession
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [lesson_ids]
+              properties:
+                lesson_ids: { type: array, items: { type: string, format: uuid } }
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  chat_session_id: { type: string, format: uuid }
+
+  /chat/sessions/{chat_session_id}/messages:
+    post:
+      summary: Отправить сообщение (streaming SSE)
+      operationId: sendChatMessage
+      parameters:
+        - name: chat_session_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [content]
+              properties:
+                content: { type: string }
+      responses:
+        "200":
+          description: Server-Sent Events stream с текстовыми чанками ответа
+          content:
+            text/event-stream:
+              schema:
+                type: string
