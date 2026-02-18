@@ -30,8 +30,9 @@ Python 3.12 (backend), Node.js 22 LTS (frontend build): Follow standard conventi
 
 ## Git Rules
 
-- NEVER run `git add`, `git restore --staged`, or any other staging/unstaging commands.
-- Only create commits when the user explicitly asks for it.
+- NEVER run ANY git commands (git add, git commit, git push, git restore, etc.).
+- Git is exclusively managed by the user.
+- When asked for a commit message — provide the text only, do not execute it.
 
 ## Plan Mode Rules
 
