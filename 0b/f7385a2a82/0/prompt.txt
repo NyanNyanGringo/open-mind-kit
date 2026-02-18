@@ -1,0 +1,170 @@
+## User Input
+
+```text
+Разработайте принципы, ориентированные на качество кода, стандарты тестирования, согласованность пользовательского опыта и требования к производительности.
+
+# ПРИНЦИПЫ КАЧЕСТВА
+
+
+> Ниже — необсуждаемые принципы. Любая фича, интеграция и изменения схемы данных должны им соответствовать.
+
+## Security / Privacy
+
+Мы проектируем систему так, чтобы утечка данных была максимально маловероятна и максимально мало вредила: собираем и храним минимум, даём пользователю контроль, а доступ к данным ограничиваем “по необходимости”. Любая автоматизация (интеграции, AI, импорт) — только по явному согласию, с прозрачным описанием, что и куда уходит. Секьюрность и приватность — это свойства архитектуры, а не “фича на потом”.
+
+## Performance
+
+Система должна оставаться быстрой при “бесконечной” истории операций и росте активных пользователей: мы проектируем чтение/фильтрацию/агрегации как основные пути, закладываем бюджеты запросов и избегаем N+1 и тяжёлых сканов. Производительность — это также предсказуемость (p95/p99) и деградация без падений. Любая новая сущность или экран обязаны иметь понятный план индексации и пагинации.
+
+## Scalability
+Рост пользователей и данных не должен требовать переписывания системы. Мы проектируем горизонтальное масштабирование там, где это разумно, и отделяем вычисления от хранения. Архитектурные решения оцениваются с точки зрения роста на порядок, а не на проценты.
+
+## Backward Compatibility
+Любые изменения API, схемы или поведения должны учитывать существующих клиентов и данные. Депрекация — управляемый процесс с явными сроками и коммуникацией. Ломающие изменения допустимы только при наличии стратегии миграции.
+
+## Explicitness
+Поведение системы должно быть очевидным и предсказуемым. Неявные сайд-эффекты, «магические» автозаполнения и скрытые фоновые изменения состояния недопустимы без прозрачного описания. Лучше явная конфигурация, чем неочевидная автоматика.
+
+## UX Consistency
+Пользовательский опыт должен быть логичным и единообразным: одинаковые действия ведут к одинаковым результатам во всех частях системы. Ошибки формулируются понятно и помогают исправить проблему. Мы минимизируем когнитивную нагрузку и не заставляем пользователя догадываться о правилах.
+
+## Testability
+Любая бизнес-логика должна быть проверяема автоматически. Мы проектируем систему так, чтобы ключевые сценарии можно было покрыть тестами без сложной инфраструктурной магии. Интеграционные и нагрузочные тесты обязательны для критических путей.
+
+
+# ПРИНЦИПЫ НАПИСАНИЯ КОДА
+
+
+## Не дублируй код
+- Код не дублируется и не повторяется. Если модуль общий или универсальный, он должен находиться внутри utilities.
+- Всегда проверяй код на дубликаты, если уверенность в том, что нет дублей < чем 0.1
+
+## Пиши простой и понятный код
+- Используйте синтаксис и логику, которые легко поймёт junior-разработчик. Код должен быть очевидным при первом чтении и не требовать дополнительных пояснений.
+- Функции и классы должны быть длиной не более 10 строк. Крайний допустимый случай - помещаться на экран макбука.
+- Лучше чуть больше кода, но прозрачного, чем компактный, но «умный»
+- Если поведение нельзя понять, просто читая код сверху вниз — это проблема дизайна
+
+## Комментируй, комментируй, комментируй
+- Комментарии - это 80% документации, поэтому всегда пиши комментарии для следующих уровней:
+```
+[шапка файла/модуля]
+
+* добавляй только если файл/модуль неочевиден по названию или содержит важные ограничения
+* пиши кратко: назначение (1–2 предложения), контекст использования, важные ограничения (платформа, версия, производительность, безопасность)
+* если уместно, добавляй лицензию/копирайт (если проект так делает) и ссылку на спецификацию/дизайн-док/тикет
+* не дублируй то, что и так видно из структуры файла и импортов
+
+[шапка функции / docstring]
+
+* ВСЕ сущности должны иметь docstring
+* описывай контракт, а не реализацию: что делает функция и какие гарантии даёт
+* входы: что означает каждый параметр, допустимые значения/диапазоны, единицы измерения, значения по умолчанию, особые случаи (null/empty)
+* выходы: что означает результат, формат, порядок, стабильность, что возвращается в крайних случаях
+* ошибки: какие исключения/коды ошибок возможны и при каких условиях
+* побочные эффекты: ввод/вывод, изменение глобального состояния, мутации аргументов, обращения к сети/диску, транзакции, блокировки
+* сложность/память указывай только если это важно для пользователя API или есть нетривиальная оценка
+* не описывай шаги алгоритма внутри docstring, если это не часть контракта
+
+[внутри тела]
+
+* добавляй комментарии только там, где без них высок риск неверного понимания
+* блочный: объясняй “почему так”, предпосылки, инварианты, ловушки, причины нетривиальных условий, ссылки на баги/спеки, смысл этапов алгоритма
+* строчный/концевой: поясняй одну неочевидную деталь в одной строке (например, особый формат, магическое число, причина проверки)
+* не комментируй очевидное (“увеличиваем i”, “вызываем функцию”) и не повторяй имя переменной
+* не оставляй закомментированный код; историю хранит VCS. исключение: очень короткий временный обходной путь — оформляй как TODO/FIXME с причиной и планом удаления
+
+[рабочие метки]
+
+* используй TODO/FIXME только если реально требуется дальнейшее действие
+* всегда добавляй: что сделать, почему, ссылку на задачу/тикет/issue (если есть), и условие удаления (“удалить после …”, “когда … станет доступно”)
+* избегай расплывчатых формулировок (“потом улучшить”, “пофиксить”), конкретизируй ожидаемый результат и критерий готовности
+```
+
+## Используй полные имена переменных
+ Избегайте сокращений и неочевидных названий. Имена переменных должны быть описательными, читаемыми и понятными без контекста.
+
+## Чётко разделяй блоки кода
+- Структурируйте код так, чтобы каждый логический или визуальный блок был изолирован и мог изменяться независимо.
+
+## Храни настраиваемую информацию отдельно
+- Выносите все данные, которые могут изменяться (строки, константы, URL и подобное), в отдельный класс или функцию (конфиг). Это упрощает поддержку и масштабирование проекта.
+
+## Лови ошибки
+- Добавляй много проверок в код, и в случае ошибок делай развернутые логи/исключения.
+```
+
+You **MUST** consider the user input before proceeding (if not empty).
+
+## Outline
+
+You are updating the project constitution at `.specify/memory/constitution.md`. This file is a TEMPLATE containing placeholder tokens in square brackets (e.g. `[PROJECT_NAME]`, `[PRINCIPLE_1_NAME]`). Your job is to (a) collect/derive concrete values, (b) fill the template precisely, and (c) propagate any amendments across dependent artifacts.
+
+**Note**: If `.specify/memory/constitution.md` does not exist yet, it should have been initialized from `.specify/templates/constitution-template.md` during project setup. If it's missing, copy the template first.
+
+Follow this execution flow:
+
+1. Load the existing constitution at `.specify/memory/constitution.md`.
+   - Identify every placeholder token of the form `[ALL_CAPS_IDENTIFIER]`.
+   **IMPORTANT**: The user might require less or more principles than the ones used in the template. If a number is specified, respect that - follow the general template. You will update the doc accordingly.
+
+2. Collect/derive values for placeholders:
+   - If user input (conversation) supplies a value, use it.
+   - Otherwise infer from existing repo context (README, docs, prior constitution versions if embedded).
+   - For governance dates: `RATIFICATION_DATE` is the original adoption date (if unknown ask or mark TODO), `LAST_AMENDED_DATE` is today if changes are made, otherwise keep previous.
+   - `CONSTITUTION_VERSION` must increment according to semantic versioning rules:
+     - MAJOR: Backward incompatible governance/principle removals or redefinitions.
+     - MINOR: New principle/section added or materially expanded guidance.
+     - PATCH: Clarifications, wording, typo fixes, non-semantic refinements.
+   - If version bump type ambiguous, propose reasoning before finalizing.
+
+3. Draft the updated constitution content:
+   - Replace every placeholder with concrete text (no bracketed tokens left except intentionally retained template slots that the project has chosen not to define yet—explicitly justify any left).
+   - Preserve heading hierarchy and comments can be removed once replaced unless they still add clarifying guidance.
+   - Ensure each Principle section: succinct name line, paragraph (or bullet list) capturing non‑negotiable rules, explicit rationale if not obvious.
+   - Ensure Governance section lists amendment procedure, versioning policy, and compliance review expectations.
+
+4. Consistency propagation checklist (convert prior checklist into active validations):
+   - Read `.specify/templates/plan-template.md` and ensure any "Constitution Check" or rules align with updated principles.
+   - Read `.specify/templates/spec-template.md` for scope/requirements alignment—update if constitution adds/removes mandatory sections or constraints.
+   - Read `.specify/templates/tasks-template.md` and ensure task categorization reflects new or removed principle-driven task types (e.g., observability, versioning, testing discipline).
+   - Read each command file in `.specify/templates/commands/*.md` (including this one) to verify no outdated references (agent-specific names like CLAUDE only) remain when generic guidance is required.
+   - Read any runtime guidance docs (e.g., `README.md`, `docs/quickstart.md`, or agent-specific guidance files if present). Update references to principles changed.
+
+5. Produce a Sync Impact Report (prepend as an HTML comment at top of the constitution file after update):
+   - Version change: old → new
+   - List of modified principles (old title → new title if renamed)
+   - Added sections
+   - Removed sections
+   - Templates requiring updates (✅ updated / ⚠ pending) with file paths
+   - Follow-up TODOs if any placeholders intentionally deferred.
+
+6. Validation before final output:
+   - No remaining unexplained bracket tokens.
+   - Version line matches report.
+   - Dates ISO format YYYY-MM-DD.
+   - Principles are declarative, testable, and free of vague language ("should" → replace with MUST/SHOULD rationale where appropriate).
+
+7. Write the completed constitution back to `.specify/memory/constitution.md` (overwrite).
+
+8. Output a final summary to the user with:
+   - New version and bump rationale.
+   - Any files flagged for manual follow-up.
+   - Suggested commit message (e.g., `docs: amend constitution to vX.Y.Z (principle additions + governance update)`).
+
+Formatting & Style Requirements:
+
+- Use Markdown headings exactly as in the template (do not demote/promote levels).
+- Wrap long rationale lines to keep readability (<100 chars ideally) but do not hard enforce with awkward breaks.
+- Keep a single blank line between sections.
+- Avoid trailing whitespace.
+
+If the user supplies partial updates (e.g., only one principle revision), still perform validation and version decision steps.
+
+If critical info missing (e.g., ratification date truly unknown), insert `TODO(<FIELD_NAME>): explanation` and include in the Sync Impact Report under deferred items.
+
+Do not create a new template; always operate on the existing `.specify/memory/constitution.md` file.
+
+---
+
+Давай заменим слово MUST на русское
