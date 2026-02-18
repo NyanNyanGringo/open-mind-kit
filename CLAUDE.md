@@ -28,6 +28,15 @@ Python 3.12 (backend), Node.js 22 LTS (frontend build): Follow standard conventi
 
 <!-- MANUAL ADDITIONS START -->
 
+## Git Rules
+
+- NEVER run `git add`, `git restore --staged`, or any other staging/unstaging commands.
+- Only create commits when the user explicitly asks for it.
+
+## Plan Mode Rules
+
+- When in Plan Mode — NEVER edit or create project files. Read-only exploration only.
+
 ## Documentation Language
 
 All README.md files and documentation MUST be written in **Russian (ru-RU)**.
