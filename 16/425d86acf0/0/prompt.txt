@@ -1,0 +1,2034 @@
+## User Input
+
+```text
+Разработайте принципы, ориентированные на качество кода, стандарты тестирования, согласованность пользовательского опыта и требования к производительности.
+
+# ПРИНЦИПЫ КАЧЕСТВА
+
+
+> Ниже — необсуждаемые принципы. Любая фича, интеграция и изменения схемы данных должны им соответствовать.
+
+## Security / Privacy
+
+Мы проектируем систему так, чтобы утечка данных была максимально маловероятна и максимально мало вредила: собираем и храним минимум, даём пользователю контроль, а доступ к данным ограничиваем “по необходимости”. Любая автоматизация (интеграции, AI, импорт) — только по явному согласию, с прозрачным описанием, что и куда уходит. Секьюрность и приватность — это свойства архитектуры, а не “фича на потом”.
+
+## Performance
+
+Система должна оставаться быстрой при “бесконечной” истории операций и росте активных пользователей: мы проектируем чтение/фильтрацию/агрегации как основные пути, закладываем бюджеты запросов и избегаем N+1 и тяжёлых сканов. Производительность — это также предсказуемость (p95/p99) и деградация без падений. Любая новая сущность или экран обязаны иметь понятный план индексации и пагинации.
+
+## Scalability
+Рост пользователей и данных не должен требовать переписывания системы. Мы проектируем горизонтальное масштабирование там, где это разумно, и отделяем вычисления от хранения. Архитектурные решения оцениваются с точки зрения роста на порядок, а не на проценты.
+
+## Backward Compatibility
+Любые изменения API, схемы или поведения должны учитывать существующих клиентов и данные. Депрекация — управляемый процесс с явными сроками и коммуникацией. Ломающие изменения допустимы только при наличии стратегии миграции.
+
+## Explicitness
+Поведение системы должно быть очевидным и предсказуемым. Неявные сайд-эффекты, «магические» автозаполнения и скрытые фоновые изменения состояния недопустимы без прозрачного описания. Лучше явная конфигурация, чем неочевидная автоматика.
+
+## UX Consistency
+Пользовательский опыт должен быть логичным и единообразным: одинаковые действия ведут к одинаковым результатам во всех частях системы. Ошибки формулируются понятно и помогают исправить проблему. Мы минимизируем когнитивную нагрузку и не заставляем пользователя догадываться о правилах.
+
+## Testability
+Любая бизнес-логика должна быть проверяема автоматически. Мы проектируем систему так, чтобы ключевые сценарии можно было покрыть тестами без сложной инфраструктурной магии. Интеграционные и нагрузочные тесты обязательны для критических путей.
+
+
+# ПРИНЦИПЫ НАПИСАНИЯ КОДА
+
+
+## Не дублируй код
+- Код не дублируется и не повторяется. Если модуль общий или универсальный, он должен находиться внутри utilities.
+- Всегда проверяй код на дубликаты, если уверенность в том, что нет дублей < чем 0.1
+
+## Пиши простой и понятный код
+- Используйте синтаксис и логику, которые легко поймёт junior-разработчик. Код должен быть очевидным при первом чтении и не требовать дополнительных пояснений.
+- Функции и классы должны быть длиной не более 10 строк. Крайний допустимый случай - помещаться на экран макбука.
+- Лучше чуть больше кода, но прозрачного, чем компактный, но «умный»
+- Если поведение нельзя понять, просто читая код сверху вниз — это проблема дизайна
+
+## Комментируй, комментируй, комментируй
+- Комментарии - это 80% документации, поэтому всегда пиши комментарии для следующих уровней:
+```
+[шапка файла/модуля]
+
+* добавляй только если файл/модуль неочевиден по названию или содержит важные ограничения
+* пиши кратко: назначение (1–2 предложения), контекст использования, важные ограничения (платформа, версия, производительность, безопасность)
+* если уместно, добавляй лицензию/копирайт (если проект так делает) и ссылку на спецификацию/дизайн-док/тикет
+* не дублируй то, что и так видно из структуры файла и импортов
+
+[шапка функции / docstring]
+
+* ВСЕ сущности должны иметь docstring
+* описывай контракт, а не реализацию: что делает функция и какие гарантии даёт
+* входы: что означает каждый параметр, допустимые значения/диапазоны, единицы измерения, значения по умолчанию, особые случаи (null/empty)
+* выходы: что означает результат, формат, порядок, стабильность, что возвращается в крайних случаях
+* ошибки: какие исключения/коды ошибок возможны и при каких условиях
+* побочные эффекты: ввод/вывод, изменение глобального состояния, мутации аргументов, обращения к сети/диску, транзакции, блокировки
+* сложность/память указывай только если это важно для пользователя API или есть нетривиальная оценка
+* не описывай шаги алгоритма внутри docstring, если это не часть контракта
+
+[внутри тела]
+
+* добавляй комментарии только там, где без них высок риск неверного понимания
+* блочный: объясняй “почему так”, предпосылки, инварианты, ловушки, причины нетривиальных условий, ссылки на баги/спеки, смысл этапов алгоритма
+* строчный/концевой: поясняй одну неочевидную деталь в одной строке (например, особый формат, магическое число, причина проверки)
+* не комментируй очевидное (“увеличиваем i”, “вызываем функцию”) и не повторяй имя переменной
+* не оставляй закомментированный код; историю хранит VCS. исключение: очень короткий временный обходной путь — оформляй как TODO/FIXME с причиной и планом удаления
+
+[рабочие метки]
+
+* используй TODO/FIXME только если реально требуется дальнейшее действие
+* всегда добавляй: что сделать, почему, ссылку на задачу/тикет/issue (если есть), и условие удаления (“удалить после …”, “когда … станет доступно”)
+* избегай расплывчатых формулировок (“потом улучшить”, “пофиксить”), конкретизируй ожидаемый результат и критерий готовности
+```
+
+## Используй полные имена переменных
+ Избегайте сокращений и неочевидных названий. Имена переменных должны быть описательными, читаемыми и понятными без контекста.
+
+## Чётко разделяй блоки кода
+- Структурируйте код так, чтобы каждый логический или визуальный блок был изолирован и мог изменяться независимо.
+
+## Храни настраиваемую информацию отдельно
+- Выносите все данные, которые могут изменяться (строки, константы, URL и подобное), в отдельный класс или функцию (конфиг). Это упрощает поддержку и масштабирование проекта.
+
+## Лови ошибки
+- Добавляй много проверок в код, и в случае ошибок делай развернутые логи/исключения.
+```
+
+You **MUST** consider the user input before proceeding (if not empty).
+
+## Outline
+
+You are updating the project constitution at `.specify/memory/constitution.md`. This file is a TEMPLATE containing placeholder tokens in square brackets (e.g. `[PROJECT_NAME]`, `[PRINCIPLE_1_NAME]`). Your job is to (a) collect/derive concrete values, (b) fill the template precisely, and (c) propagate any amendments across dependent artifacts.
+
+**Note**: If `.specify/memory/constitution.md` does not exist yet, it should have been initialized from `.specify/templates/constitution-template.md` during project setup. If it's missing, copy the template first.
+
+Follow this execution flow:
+
+1. Load the existing constitution at `.specify/memory/constitution.md`.
+   - Identify every placeholder token of the form `[ALL_CAPS_IDENTIFIER]`.
+   **IMPORTANT**: The user might require less or more principles than the ones used in the template. If a number is specified, respect that - follow the general template. You will update the doc accordingly.
+
+2. Collect/derive values for placeholders:
+   - If user input (conversation) supplies a value, use it.
+   - Otherwise infer from existing repo context (README, docs, prior constitution versions if embedded).
+   - For governance dates: `RATIFICATION_DATE` is the original adoption date (if unknown ask or mark TODO), `LAST_AMENDED_DATE` is today if changes are made, otherwise keep previous.
+   - `CONSTITUTION_VERSION` must increment according to semantic versioning rules:
+     - MAJOR: Backward incompatible governance/principle removals or redefinitions.
+     - MINOR: New principle/section added or materially expanded guidance.
+     - PATCH: Clarifications, wording, typo fixes, non-semantic refinements.
+   - If version bump type ambiguous, propose reasoning before finalizing.
+
+3. Draft the updated constitution content:
+   - Replace every placeholder with concrete text (no bracketed tokens left except intentionally retained template slots that the project has chosen not to define yet—explicitly justify any left).
+   - Preserve heading hierarchy and comments can be removed once replaced unless they still add clarifying guidance.
+   - Ensure each Principle section: succinct name line, paragraph (or bullet list) capturing non‑negotiable rules, explicit rationale if not obvious.
+   - Ensure Governance section lists amendment procedure, versioning policy, and compliance review expectations.
+
+4. Consistency propagation checklist (convert prior checklist into active validations):
+   - Read `.specify/templates/plan-template.md` and ensure any "Constitution Check" or rules align with updated principles.
+   - Read `.specify/templates/spec-template.md` for scope/requirements alignment—update if constitution adds/removes mandatory sections or constraints.
+   - Read `.specify/templates/tasks-template.md` and ensure task categorization reflects new or removed principle-driven task types (e.g., observability, versioning, testing discipline).
+   - Read each command file in `.specify/templates/commands/*.md` (including this one) to verify no outdated references (agent-specific names like CLAUDE only) remain when generic guidance is required.
+   - Read any runtime guidance docs (e.g., `README.md`, `docs/quickstart.md`, or agent-specific guidance files if present). Update references to principles changed.
+
+5. Produce a Sync Impact Report (prepend as an HTML comment at top of the constitution file after update):
+   - Version change: old → new
+   - List of modified principles (old title → new title if renamed)
+   - Added sections
+   - Removed sections
+   - Templates requiring updates (✅ updated / ⚠ pending) with file paths
+   - Follow-up TODOs if any placeholders intentionally deferred.
+
+6. Validation before final output:
+   - No remaining unexplained bracket tokens.
+   - Version line matches report.
+   - Dates ISO format YYYY-MM-DD.
+   - Principles are declarative, testable, and free of vague language ("should" → replace with MUST/SHOULD rationale where appropriate).
+
+7. Write the completed constitution back to `.specify/memory/constitution.md` (overwrite).
+
+8. Output a final summary to the user with:
+   - New version and bump rationale.
+   - Any files flagged for manual follow-up.
+   - Suggested commit message (e.g., `docs: amend constitution to vX.Y.Z (principle additions + governance update)`).
+
+Formatting & Style Requirements:
+
+- Use Markdown headings exactly as in the template (do not demote/promote levels).
+- Wrap long rationale lines to keep readability (<100 chars ideally) but do not hard enforce with awkward breaks.
+- Keep a single blank line between sections.
+- Avoid trailing whitespace.
+
+If the user supplies partial updates (e.g., only one principle revision), still perform validation and version decision steps.
+
+If critical info missing (e.g., ratification date truly unknown), insert `TODO(<FIELD_NAME>): explanation` and include in the Sync Impact Report under deferred items.
+
+Do not create a new template; always operate on the existing `.specify/memory/constitution.md` file.
+
+---
+
+Давай заменим слово MUST на русское
+
+---
+
+## User Input
+
+```text
+Я хочу создать open source, веб-based приложение для учебы, которое позволит через кодекс или клаудикод подписку, да, подключать агентов к нему. приложение будет разворачиваться там в деске у пользователя и дальше можно будет загружать в это приложение через веб-интерфейс любые просто текст, любые файлы PDF, презентация, PowerPoint, голосовые сообщения, аудио, неважно, там, все что угодно это может быть. вот любые форматы в том числе картинки видео до который будет потом транскрибироваться вот в аудио оттуда будет доставаться текст и и так далее. То есть он закидывает любые файлы, эти файлы обрабатываются агентом который подключен через оаус авторизацию вот то То есть, чтобы можно было просто ты подписку там в кодексе или в клауде коде имеешь, и ты мог просто подключить его к приложению, и у тебя как бы агент за твои токены, которые входят в подписку, работали. и дальше ты соответственно у тебя какой workflow происходит ты заходишь и говоришь у тебя там есть есть рабочее пространство. да вот с рабочие пространство например там рабочее пространство изучения сербского языка. И ты изучаешь сербский язык, создал рабочее пространство далее ты создаешь уроки вот у тебя прошел один урок 2 урок 3 урок и так далее там lesson 1 ты берешь например урок 1 ты в этот урок один загрузил видео загрузил презентации в pdf формате не знаю загрузил туда какие-то текстовые заметки свои вот все это туда ты загрузил и он их начинает как бы обрабатывать вот то есть он не знаю пока как это будет реализовано но в общем он создает там под этот проект базу данных свою туда раскладывает там типа слова и так далее так далее то есть целый там цикл обучения и для чего то есть он берет эти данные их фильтруют определенным образом да то есть там из видео достает полностью этот текст, текст потом он обрабатывает, то есть все это работает моделька, агент, который позволяет все это делать, через нее можно запросы там эти всякие делать. И плюс это все уже есть какие-то встроенные инструменты, которые этот агент использует для работы с этим, ну или или как-то это оптимизировать максимально через обычный код и математику, чтобы снизить контекстную нагрузку с агентов. Это будет хорошо, но это должно быть бесшовно. То есть типа я вот захожу, хочу сессию, я просто скопом все, что у меня есть по лекции, закинул туда файлы он самых как бы грамотно уже обрабатывает вот и дальше И дальше происходит следующее: это этап номер один. А вторая часть приложения — это, по сути, работа с этими, там типа я хочу там тест в виде карточек по всем словам там по лекции там 1 2 и 3 например или по лекции 1310 вот и или там за все время или я хочу тест по хочу тест по своим слабым местам да по словам которые хуже всего знаю то есть и покрыть типа он показывает графики дашборду показывает все что касается вот вот этой обработки данных до Возможен чат, да, просто типа давай там в игровой какой-то форму, то есть любые игровые формы и так далее. То есть это именно помощник, то есть ты в него просто загружаешь данные, он их автоматически обрабатывает, тебе там самому ничего не надо делать, записывать, вот и он тебе позволяет в игровой форме просто через сайт дальше учить вот это все разворачивается локально и работает локально вот примерно такое приложение будем мы создавать с тобой
+```
+
+You **MUST** consider the user input before proceeding (if not empty).
+
+## Outline
+
+The text the user typed after `/speckit.specify` in the triggering message **is** the feature description. Assume you always have it available in this conversation even if `Я хочу создать open source, веб-based приложение для учебы, которое позволит через кодекс или клаудикод подписку, да, подключать агентов к нему. приложение будет разворачиваться там в деске у пользователя и дальше можно будет загружать в это приложение через веб-интерфейс любые просто текст, любые файлы PDF, презентация, PowerPoint, голосовые сообщения, аудио, неважно, там, все что угодно это может быть. вот любые форматы в том числе картинки видео до который будет потом транскрибироваться вот в аудио оттуда будет доставаться текст и и так далее. То есть он закидывает любые файлы, эти файлы обрабатываются агентом который подключен через оаус авторизацию вот то То есть, чтобы можно было просто ты подписку там в кодексе или в клауде коде имеешь, и ты мог просто подключить его к приложению, и у тебя как бы агент за твои токены, которые входят в подписку, работали. и дальше ты соответственно у тебя какой workflow происходит ты заходишь и говоришь у тебя там есть есть рабочее пространство. да вот с рабочие пространство например там рабочее пространство изучения сербского языка. И ты изучаешь сербский язык, создал рабочее пространство далее ты создаешь уроки вот у тебя прошел один урок 2 урок 3 урок и так далее там lesson 1 ты берешь например урок 1 ты в этот урок один загрузил видео загрузил презентации в pdf формате не знаю загрузил туда какие-то текстовые заметки свои вот все это туда ты загрузил и он их начинает как бы обрабатывать вот то есть он не знаю пока как это будет реализовано но в общем он создает там под этот проект базу данных свою туда раскладывает там типа слова и так далее так далее то есть целый там цикл обучения и для чего то есть он берет эти данные их фильтруют определенным образом да то есть там из видео достает полностью этот текст, текст потом он обрабатывает, то есть все это работает моделька, агент, который позволяет все это делать, через нее можно запросы там эти всякие делать. И плюс это все уже есть какие-то встроенные инструменты, которые этот агент использует для работы с этим, ну или или как-то это оптимизировать максимально через обычный код и математику, чтобы снизить контекстную нагрузку с агентов. Это будет хорошо, но это должно быть бесшовно. То есть типа я вот захожу, хочу сессию, я просто скопом все, что у меня есть по лекции, закинул туда файлы он самых как бы грамотно уже обрабатывает вот и дальше И дальше происходит следующее: это этап номер один. А вторая часть приложения — это, по сути, работа с этими, там типа я хочу там тест в виде карточек по всем словам там по лекции там 1 2 и 3 например или по лекции 1310 вот и или там за все время или я хочу тест по хочу тест по своим слабым местам да по словам которые хуже всего знаю то есть и покрыть типа он показывает графики дашборду показывает все что касается вот вот этой обработки данных до Возможен чат, да, просто типа давай там в игровой какой-то форму, то есть любые игровые формы и так далее. То есть это именно помощник, то есть ты в него просто загружаешь данные, он их автоматически обрабатывает, тебе там самому ничего не надо делать, записывать, вот и он тебе позволяет в игровой форме просто через сайт дальше учить вот это все разворачивается локально и работает локально вот примерно такое приложение будем мы создавать с тобой` appears literally below. Do not ask the user to repeat it unless they provided an empty command.
+
+Given that feature description, do this:
+
+1. **Generate a concise short name** (2-4 words) for the branch:
+   - Analyze the feature description and extract the most meaningful keywords
+   - Create a 2-4 word short name that captures the essence of the feature
+   - Use action-noun format when possible (e.g., "add-user-auth", "fix-payment-bug")
+   - Preserve technical terms and acronyms (OAuth2, API, JWT, etc.)
+   - Keep it concise but descriptive enough to understand the feature at a glance
+   - Examples:
+     - "I want to add user authentication" → "user-auth"
+     - "Implement OAuth2 integration for the API" → "oauth2-api-integration"
+     - "Create a dashboard for analytics" → "analytics-dashboard"
+     - "Fix payment processing timeout bug" → "fix-payment-timeout"
+
+2. **Check for existing branches before creating new one**:
+
+   a. First, fetch all remote branches to ensure we have the latest information:
+
+      ```bash
+      git fetch --all --prune
+      ```
+
+   b. Find the highest feature number across all sources for the short-name:
+      - Remote branches: `git ls-remote --heads origin | grep -E 'refs/heads/[0-9]+-<short-name>$'`
+      - Local branches: `git branch | grep -E '^[* ]*[0-9]+-<short-name>$'`
+      - Specs directories: Check for directories matching `specs/[0-9]+-<short-name>`
+
+   c. Determine the next available number:
+      - Extract all numbers from all three sources
+      - Find the highest number N
+      - Use N+1 for the new branch number
+
+   d. Run the script `.specify/scripts/bash/create-new-feature.sh --json "Я хочу создать open source, веб-based приложение для учебы, которое позволит через кодекс или клаудикод подписку, да, подключать агентов к нему. приложение будет разворачиваться там в деске у пользователя и дальше можно будет загружать в это приложение через веб-интерфейс любые просто текст, любые файлы PDF, презентация, PowerPoint, голосовые сообщения, аудио, неважно, там, все что угодно это может быть. вот любые форматы в том числе картинки видео до который будет потом транскрибироваться вот в аудио оттуда будет доставаться текст и и так далее. То есть он закидывает любые файлы, эти файлы обрабатываются агентом который подключен через оаус авторизацию вот то То есть, чтобы можно было просто ты подписку там в кодексе или в клауде коде имеешь, и ты мог просто подключить его к приложению, и у тебя как бы агент за твои токены, которые входят в подписку, работали. и дальше ты соответственно у тебя какой workflow происходит ты заходишь и говоришь у тебя там есть есть рабочее пространство. да вот с рабочие пространство например там рабочее пространство изучения сербского языка. И ты изучаешь сербский язык, создал рабочее пространство далее ты создаешь уроки вот у тебя прошел один урок 2 урок 3 урок и так далее там lesson 1 ты берешь например урок 1 ты в этот урок один загрузил видео загрузил презентации в pdf формате не знаю загрузил туда какие-то текстовые заметки свои вот все это туда ты загрузил и он их начинает как бы обрабатывать вот то есть он не знаю пока как это будет реализовано но в общем он создает там под этот проект базу данных свою туда раскладывает там типа слова и так далее так далее то есть целый там цикл обучения и для чего то есть он берет эти данные их фильтруют определенным образом да то есть там из видео достает полностью этот текст, текст потом он обрабатывает, то есть все это работает моделька, агент, который позволяет все это делать, через нее можно запросы там эти всякие делать. И плюс это все уже есть какие-то встроенные инструменты, которые этот агент использует для работы с этим, ну или или как-то это оптимизировать максимально через обычный код и математику, чтобы снизить контекстную нагрузку с агентов. Это будет хорошо, но это должно быть бесшовно. То есть типа я вот захожу, хочу сессию, я просто скопом все, что у меня есть по лекции, закинул туда файлы он самых как бы грамотно уже обрабатывает вот и дальше И дальше происходит следующее: это этап номер один. А вторая часть приложения — это, по сути, работа с этими, там типа я хочу там тест в виде карточек по всем словам там по лекции там 1 2 и 3 например или по лекции 1310 вот и или там за все время или я хочу тест по хочу тест по своим слабым местам да по словам которые хуже всего знаю то есть и покрыть типа он показывает графики дашборду показывает все что касается вот вот этой обработки данных до Возможен чат, да, просто типа давай там в игровой какой-то форму, то есть любые игровые формы и так далее. То есть это именно помощник, то есть ты в него просто загружаешь данные, он их автоматически обрабатывает, тебе там самому ничего не надо делать, записывать, вот и он тебе позволяет в игровой форме просто через сайт дальше учить вот это все разворачивается локально и работает локально вот примерно такое приложение будем мы создавать с тобой"` with the calculated number and short-name:
+      - Pass `--number N+1` and `--short-name "your-short-name"` along with the feature description
+      - Bash example: `.specify/scripts/bash/create-new-feature.sh --json "Я хочу создать open source, веб-based приложение для учебы, которое позволит через кодекс или клаудикод подписку, да, подключать агентов к нему. приложение будет разворачиваться там в деске у пользователя и дальше можно будет загружать в это приложение через веб-интерфейс любые просто текст, любые файлы PDF, презентация, PowerPoint, голосовые сообщения, аудио, неважно, там, все что угодно это может быть. вот любые форматы в том числе картинки видео до который будет потом транскрибироваться вот в аудио оттуда будет доставаться текст и и так далее. То есть он закидывает любые файлы, эти файлы обрабатываются агентом который подключен через оаус авторизацию вот то То есть, чтобы можно было просто ты подписку там в кодексе или в клауде коде имеешь, и ты мог просто подключить его к приложению, и у тебя как бы агент за твои токены, которые входят в подписку, работали. и дальше ты соответственно у тебя какой workflow происходит ты заходишь и говоришь у тебя там есть есть рабочее пространство. да вот с рабочие пространство например там рабочее пространство изучения сербского языка. И ты изучаешь сербский язык, создал рабочее пространство далее ты создаешь уроки вот у тебя прошел один урок 2 урок 3 урок и так далее там lesson 1 ты берешь например урок 1 ты в этот урок один загрузил видео загрузил презентации в pdf формате не знаю загрузил туда какие-то текстовые заметки свои вот все это туда ты загрузил и он их начинает как бы обрабатывать вот то есть он не знаю пока как это будет реализовано но в общем он создает там под этот проект базу данных свою туда раскладывает там типа слова и так далее так далее то есть целый там цикл обучения и для чего то есть он берет эти данные их фильтруют определенным образом да то есть там из видео достает полностью этот текст, текст потом он обрабатывает, то есть все это работает моделька, агент, который позволяет все это делать, через нее можно запросы там эти всякие делать. И плюс это все уже есть какие-то встроенные инструменты, которые этот агент использует для работы с этим, ну или или как-то это оптимизировать максимально через обычный код и математику, чтобы снизить контекстную нагрузку с агентов. Это будет хорошо, но это должно быть бесшовно. То есть типа я вот захожу, хочу сессию, я просто скопом все, что у меня есть по лекции, закинул туда файлы он самых как бы грамотно уже обрабатывает вот и дальше И дальше происходит следующее: это этап номер один. А вторая часть приложения — это, по сути, работа с этими, там типа я хочу там тест в виде карточек по всем словам там по лекции там 1 2 и 3 например или по лекции 1310 вот и или там за все время или я хочу тест по хочу тест по своим слабым местам да по словам которые хуже всего знаю то есть и покрыть типа он показывает графики дашборду показывает все что касается вот вот этой обработки данных до Возможен чат, да, просто типа давай там в игровой какой-то форму, то есть любые игровые формы и так далее. То есть это именно помощник, то есть ты в него просто загружаешь данные, он их автоматически обрабатывает, тебе там самому ничего не надо делать, записывать, вот и он тебе позволяет в игровой форме просто через сайт дальше учить вот это все разворачивается локально и работает локально вот примерно такое приложение будем мы создавать с тобой" --json --number 5 --short-name "user-auth" "Add user authentication"`
+      - PowerShell example: `.specify/scripts/bash/create-new-feature.sh --json "Я хочу создать open source, веб-based приложение для учебы, которое позволит через кодекс или клаудикод подписку, да, подключать агентов к нему. приложение будет разворачиваться там в деске у пользователя и дальше можно будет загружать в это приложение через веб-интерфейс любые просто текст, любые файлы PDF, презентация, PowerPoint, голосовые сообщения, аудио, неважно, там, все что угодно это может быть. вот любые форматы в том числе картинки видео до который будет потом транскрибироваться вот в аудио оттуда будет доставаться текст и и так далее. То есть он закидывает любые файлы, эти файлы обрабатываются агентом который подключен через оаус авторизацию вот то То есть, чтобы можно было просто ты подписку там в кодексе или в клауде коде имеешь, и ты мог просто подключить его к приложению, и у тебя как бы агент за твои токены, которые входят в подписку, работали. и дальше ты соответственно у тебя какой workflow происходит ты заходишь и говоришь у тебя там есть есть рабочее пространство. да вот с рабочие пространство например там рабочее пространство изучения сербского языка. И ты изучаешь сербский язык, создал рабочее пространство далее ты создаешь уроки вот у тебя прошел один урок 2 урок 3 урок и так далее там lesson 1 ты берешь например урок 1 ты в этот урок один загрузил видео загрузил презентации в pdf формате не знаю загрузил туда какие-то текстовые заметки свои вот все это туда ты загрузил и он их начинает как бы обрабатывать вот то есть он не знаю пока как это будет реализовано но в общем он создает там под этот проект базу данных свою туда раскладывает там типа слова и так далее так далее то есть целый там цикл обучения и для чего то есть он берет эти данные их фильтруют определенным образом да то есть там из видео достает полностью этот текст, текст потом он обрабатывает, то есть все это работает моделька, агент, который позволяет все это делать, через нее можно запросы там эти всякие делать. И плюс это все уже есть какие-то встроенные инструменты, которые этот агент использует для работы с этим, ну или или как-то это оптимизировать максимально через обычный код и математику, чтобы снизить контекстную нагрузку с агентов. Это будет хорошо, но это должно быть бесшовно. То есть типа я вот захожу, хочу сессию, я просто скопом все, что у меня есть по лекции, закинул туда файлы он самых как бы грамотно уже обрабатывает вот и дальше И дальше происходит следующее: это этап номер один. А вторая часть приложения — это, по сути, работа с этими, там типа я хочу там тест в виде карточек по всем словам там по лекции там 1 2 и 3 например или по лекции 1310 вот и или там за все время или я хочу тест по хочу тест по своим слабым местам да по словам которые хуже всего знаю то есть и покрыть типа он показывает графики дашборду показывает все что касается вот вот этой обработки данных до Возможен чат, да, просто типа давай там в игровой какой-то форму, то есть любые игровые формы и так далее. То есть это именно помощник, то есть ты в него просто загружаешь данные, он их автоматически обрабатывает, тебе там самому ничего не надо делать, записывать, вот и он тебе позволяет в игровой форме просто через сайт дальше учить вот это все разворачивается локально и работает локально вот примерно такое приложение будем мы создавать с тобой" -Json -Number 5 -ShortName "user-auth" "Add user authentication"`
+
+   **IMPORTANT**:
+   - Check all three sources (remote branches, local branches, specs directories) to find the highest number
+   - Only match branches/directories with the exact short-name pattern
+   - If no existing branches/directories found with this short-name, start with number 1
+   - You must only ever run this script once per feature
+   - The JSON is provided in the terminal as output - always refer to it to get the actual content you're looking for
+   - The JSON output will contain BRANCH_NAME and SPEC_FILE paths
+   - For single quotes in args like "I'm Groot", use escape syntax: e.g 'I'\''m Groot' (or double-quote if possible: "I'm Groot")
+
+3. Load `.specify/templates/spec-template.md` to understand required sections.
+
+4. Follow this execution flow:
+
+    1. Parse user description from Input
+       If empty: ERROR "No feature description provided"
+    2. Extract key concepts from description
+       Identify: actors, actions, data, constraints
+    3. For unclear aspects:
+       - Make informed guesses based on context and industry standards
+       - Only mark with [NEEDS CLARIFICATION: specific question] if:
+         - The choice significantly impacts feature scope or user experience
+         - Multiple reasonable interpretations exist with different implications
+         - No reasonable default exists
+       - **LIMIT: Maximum 3 [NEEDS CLARIFICATION] markers total**
+       - Prioritize clarifications by impact: scope > security/privacy > user experience > technical details
+    4. Fill User Scenarios & Testing section
+       If no clear user flow: ERROR "Cannot determine user scenarios"
+    5. Generate Functional Requirements
+       Each requirement must be testable
+       Use reasonable defaults for unspecified details (document assumptions in Assumptions section)
+    6. Define Success Criteria
+       Create measurable, technology-agnostic outcomes
+       Include both quantitative metrics (time, performance, volume) and qualitative measures (user satisfaction, task completion)
+       Each criterion must be verifiable without implementation details
+    7. Identify Key Entities (if data involved)
+    8. Return: SUCCESS (spec ready for planning)
+
+5. Write the specification to SPEC_FILE using the template structure, replacing placeholders with concrete details derived from the feature description (arguments) while preserving section order and headings.
+
+6. **Specification Quality Validation**: After writing the initial spec, validate it against quality criteria:
+
+   a. **Create Spec Quality Checklist**: Generate a checklist file at `FEATURE_DIR/checklists/requirements.md` using the checklist template structure with these validation items:
+
+      ```markdown
+      # Specification Quality Checklist: [FEATURE NAME]
+      
+      **Purpose**: Validate specification completeness and quality before proceeding to planning
+      **Created**: [DATE]
+      **Feature**: [Link to spec.md]
+      
+      ## Content Quality
+      
+      - [ ] No implementation details (languages, frameworks, APIs)
+      - [ ] Focused on user value and business needs
+      - [ ] Written for non-technical stakeholders
+      - [ ] All mandatory sections completed
+      
+      ## Requirement Completeness
+      
+      - [ ] No [NEEDS CLARIFICATION] markers remain
+      - [ ] Requirements are testable and unambiguous
+      - [ ] Success criteria are measurable
+      - [ ] Success criteria are technology-agnostic (no implementation details)
+      - [ ] All acceptance scenarios are defined
+      - [ ] Edge cases are identified
+      - [ ] Scope is clearly bounded
+      - [ ] Dependencies and assumptions identified
+      
+      ## Feature Readiness
+      
+      - [ ] All functional requirements have clear acceptance criteria
+      - [ ] User scenarios cover primary flows
+      - [ ] Feature meets measurable outcomes defined in Success Criteria
+      - [ ] No implementation details leak into specification
+      
+      ## Notes
+      
+      - Items marked incomplete require spec updates before `/speckit.clarify` or `/speckit.plan`
+      ```
+
+   b. **Run Validation Check**: Review the spec against each checklist item:
+      - For each item, determine if it passes or fails
+      - Document specific issues found (quote relevant spec sections)
+
+   c. **Handle Validation Results**:
+
+      - **If all items pass**: Mark checklist complete and proceed to step 6
+
+      - **If items fail (excluding [NEEDS CLARIFICATION])**:
+        1. List the failing items and specific issues
+        2. Update the spec to address each issue
+        3. Re-run validation until all items pass (max 3 iterations)
+        4. If still failing after 3 iterations, document remaining issues in checklist notes and warn user
+
+      - **If [NEEDS CLARIFICATION] markers remain**:
+        1. Extract all [NEEDS CLARIFICATION: ...] markers from the spec
+        2. **LIMIT CHECK**: If more than 3 markers exist, keep only the 3 most critical (by scope/security/UX impact) and make informed guesses for the rest
+        3. For each clarification needed (max 3), present options to user in this format:
+
+           ```markdown
+           ## Question [N]: [Topic]
+           
+           **Context**: [Quote relevant spec section]
+           
+           **What we need to know**: [Specific question from NEEDS CLARIFICATION marker]
+           
+           **Suggested Answers**:
+           
+           | Option | Answer | Implications |
+           |--------|--------|--------------|
+           | A      | [First suggested answer] | [What this means for the feature] |
+           | B      | [Second suggested answer] | [What this means for the feature] |
+           | C      | [Third suggested answer] | [What this means for the feature] |
+           | Custom | Provide your own answer | [Explain how to provide custom input] |
+           
+           **Your choice**: _[Wait for user response]_
+           ```
+
+        4. **CRITICAL - Table Formatting**: Ensure markdown tables are properly formatted:
+           - Use consistent spacing with pipes aligned
+           - Each cell should have spaces around content: `| Content |` not `|Content|`
+           - Header separator must have at least 3 dashes: `|--------|`
+           - Test that the table renders correctly in markdown preview
+        5. Number questions sequentially (Q1, Q2, Q3 - max 3 total)
+        6. Present all questions together before waiting for responses
+        7. Wait for user to respond with their choices for all questions (e.g., "Q1: A, Q2: Custom - [details], Q3: B")
+        8. Update the spec by replacing each [NEEDS CLARIFICATION] marker with the user's selected or provided answer
+        9. Re-run validation after all clarifications are resolved
+
+   d. **Update Checklist**: After each validation iteration, update the checklist file with current pass/fail status
+
+7. Report completion with branch name, spec file path, checklist results, and readiness for the next phase (`/speckit.clarify` or `/speckit.plan`).
+
+**NOTE:** The script creates and checks out the new branch and initializes the spec file before writing.
+
+## General Guidelines
+
+## Quick Guidelines
+
+- Focus on **WHAT** users need and **WHY**.
+- Avoid HOW to implement (no tech stack, APIs, code structure).
+- Written for business stakeholders, not developers.
+- DO NOT create any checklists that are embedded in the spec. That will be a separate command.
+
+### Section Requirements
+
+- **Mandatory sections**: Must be completed for every feature
+- **Optional sections**: Include only when relevant to the feature
+- When a section doesn't apply, remove it entirely (don't leave as "N/A")
+
+### For AI Generation
+
+When creating this spec from a user prompt:
+
+1. **Make informed guesses**: Use context, industry standards, and common patterns to fill gaps
+2. **Document assumptions**: Record reasonable defaults in the Assumptions section
+3. **Limit clarifications**: Maximum 3 [NEEDS CLARIFICATION] markers - use only for critical decisions that:
+   - Significantly impact feature scope or user experience
+   - Have multiple reasonable interpretations with different implications
+   - Lack any reasonable default
+4. **Prioritize clarifications**: scope > security/privacy > user experience > technical details
+5. **Think like a tester**: Every vague requirement should fail the "testable and unambiguous" checklist item
+6. **Common areas needing clarification** (only if no reasonable default exists):
+   - Feature scope and boundaries (include/exclude specific use cases)
+   - User types and permissions (if multiple conflicting interpretations possible)
+   - Security/compliance requirements (when legally/financially significant)
+
+**Examples of reasonable defaults** (don't ask about these):
+
+- Data retention: Industry-standard practices for the domain
+- Performance targets: Standard web/mobile app expectations unless specified
+- Error handling: User-friendly messages with appropriate fallbacks
+- Authentication method: Standard session-based or OAuth2 for web apps
+- Integration patterns: RESTful APIs unless specified otherwise
+
+### Success Criteria Guidelines
+
+Success criteria must be:
+
+1. **Measurable**: Include specific metrics (time, percentage, count, rate)
+2. **Technology-agnostic**: No mention of frameworks, languages, databases, or tools
+3. **User-focused**: Describe outcomes from user/business perspective, not system internals
+4. **Verifiable**: Can be tested/validated without knowing implementation details
+
+**Good examples**:
+
+- "Users can complete checkout in under 3 minutes"
+- "System supports 10,000 concurrent users"
+- "95% of searches return results in under 1 second"
+- "Task completion rate improves by 40%"
+
+**Bad examples** (implementation-focused):
+
+- "API response time is under 200ms" (too technical, use "Users see results instantly")
+- "Database can handle 1000 TPS" (implementation detail, use user-facing metric)
+- "React components render efficiently" (framework-specific)
+- "Redis cache hit rate above 80%" (technology-specific)
+
+---
+
+OAuth2-поток делаем, как в OpenClaw
+
+---
+
+## User Input
+
+```text
+
+```
+
+You **MUST** consider the user input before proceeding (if not empty).
+
+## Outline
+
+1. **Setup**: Run `.specify/scripts/bash/setup-plan.sh --json` from repo root and parse JSON for FEATURE_SPEC, IMPL_PLAN, SPECS_DIR, BRANCH. For single quotes in args like "I'm Groot", use escape syntax: e.g 'I'\''m Groot' (or double-quote if possible: "I'm Groot").
+
+2. **Load context**: Read FEATURE_SPEC and `.specify/memory/constitution.md`. Load IMPL_PLAN template (already copied).
+
+3. **Execute plan workflow**: Follow the structure in IMPL_PLAN template to:
+   - Fill Technical Context (mark unknowns as "NEEDS CLARIFICATION")
+   - Fill Constitution Check section from constitution
+   - Evaluate gates (ERROR if violations unjustified)
+   - Phase 0: Generate research.md (resolve all NEEDS CLARIFICATION)
+   - Phase 1: Generate data-model.md, contracts/, quickstart.md
+   - Phase 1: Update agent context by running the agent script
+   - Re-evaluate Constitution Check post-design
+
+4. **Stop and report**: Command ends after Phase 2 planning. Report branch, IMPL_PLAN path, and generated artifacts.
+
+## Phases
+
+### Phase 0: Outline & Research
+
+1. **Extract unknowns from Technical Context** above:
+   - For each NEEDS CLARIFICATION → research task
+   - For each dependency → best practices task
+   - For each integration → patterns task
+
+2. **Generate and dispatch research agents**:
+
+   ```text
+   For each unknown in Technical Context:
+     Task: "Research {unknown} for {feature context}"
+   For each technology choice:
+     Task: "Find best practices for {tech} in {domain}"
+   ```
+
+3. **Consolidate findings** in `research.md` using format:
+   - Decision: [what was chosen]
+   - Rationale: [why chosen]
+   - Alternatives considered: [what else evaluated]
+
+**Output**: research.md with all NEEDS CLARIFICATION resolved
+
+### Phase 1: Design & Contracts
+
+**Prerequisites:** `research.md` complete
+
+1. **Extract entities from feature spec** → `data-model.md`:
+   - Entity name, fields, relationships
+   - Validation rules from requirements
+   - State transitions if applicable
+
+2. **Generate API contracts** from functional requirements:
+   - For each user action → endpoint
+   - Use standard REST/GraphQL patterns
+   - Output OpenAPI/GraphQL schema to `/contracts/`
+
+3. **Agent context update**:
+   - Run `.specify/scripts/bash/update-agent-context.sh claude`
+   - These scripts detect which AI agent is in use
+   - Update the appropriate agent-specific context file
+   - Add only new technology from current plan
+   - Preserve manual additions between markers
+
+**Output**: data-model.md, /contracts/*, quickstart.md, agent-specific file
+
+## Key rules
+
+- Use absolute paths
+- ERROR on gate failures or unresolved clarifications
+
+---
+
+<task-notification>
+<task-id>ace3d01</task-id>
+<status>completed</status>
+<summary>Agent "Research local web app tech stack" completed</summary>
+<result>Now I have enough data to compile a thorough, well-reasoned research summary. Let me assemble everything.
+
+---
+
+## Tech Stack Research Summary for Local-First File Processing Web App
+
+### Context Snapshot
+- Deployment: Docker Compose on user desktop (Linux/Mac/Windows)
+- Users: Single user, local only, no cloud
+- Workload: File processing pipeline (PDF, PPTX, DOCX, audio, video, images) + AI agent calls
+- Requirements: Async queue with status tracking, OAuth2 to Anthropic + OpenAI APIs, open source
+
+---
+
+## Decision 1: Backend — FastAPI (Python)
+
+**Decision: FastAPI**
+
+**Rationale:**
+
+Go is the wrong choice here. Its ecosystem for document parsing (PDF, PPTX, DOCX), audio transcription (Whisper), and AI SDK integration is thin. You would need to shell out to Python tools anyway or maintain FFI wrappers, which eliminates Go's operational simplicity advantage.
+
+Node.js/Fastify is a legitimate option but falls short on one critical dimension: the entire file processing ecosystem lives in Python. PyPDF, python-pptx, python-docx, openai-whisper, ffmpeg-python, Pillow, and both the Anthropic and OpenAI SDKs are Python-first. Building this pipeline in Node means pulling in binary wrappers, shelling out, or using inferior ports.
+
+FastAPI wins decisively because:
+- It is async-native (built on Starlette + anyio), matching the async processing requirement with no friction
+- Auto-generated OpenAPI docs (Swagger UI) accelerate development and make the API self-documenting
+- Python has the richest ecosystem for every file format in the requirement: PDF, Office docs, audio, video, images
+- Both AI provider SDKs (Anthropic and OpenAI) are Python-first with full async support
+- It is the go-to choice cited across 2025-2026 sources specifically for "AI services, ML inference, data processing pipelines"
+- Strong track record: used by Uber (ML integration) and Netflix (Dispatch orchestration)
+- Pydantic v2 integration gives type-safe request/response validation with near-zero overhead
+
+FastAPI BackgroundTasks is NOT sufficient for this use case (see Decision 4). FastAPI is the web layer; the task queue is separate.
+
+**Key versions (Feb 2026):**
+```
+fastapi==0.129.0
+uvicorn[standard]==0.41.0
+pydantic==2.12.5
+sqlmodel==0.0.34
+httpx==0.28.1
+anthropic==0.82.0
+openai==2.21.0
+python-multipart==0.0.x   # for file uploads
+pypdf==6.7.1
+python-pptx==1.0.2
+python-docx==1.2.0
+```
+
+Python 3.12+ is the recommended runtime (3.14 is latest as of Feb 2026 but 3.12 LTS is the safe production choice).
+
+---
+
+## Decision 2: Frontend — SvelteKit + TypeScript
+
+**Decision: SvelteKit 2 with TypeScript**
+
+**Rationale:**
+
+React/Next.js is the industry-dominant choice but is genuinely overkill for a single-user local tool. It brings heavy virtual DOM overhead, requires elaborate state management (Redux/Zustand/Jotai), and has a much larger bundle. More critically, its developer ergonomics involve significant boilerplate for what is essentially a file upload dashboard with a job status view.
+
+Vue 3 is a solid middle ground but does not offer a meaningful advantage over SvelteKit for this use case. Its Composition API and TypeScript support are good but not superior.
+
+SvelteKit wins for a local-first single-user app because:
+- Compiled output: Svelte compiles away the framework at build time; no virtual DOM overhead, smallest runtime bundle
+- Developer satisfaction: highest in the 2024 Stack Overflow survey (72.8% admired vs React's 62.2%), meaning faster, more enjoyable development
+- Built-in reactivity without external state libraries: file upload state, job queue status, progress indicators all manageable with native `$state` runes (Svelte 5)
+- SvelteKit 2 provides routing, SSR, and API route capabilities without any additional configuration
+- Svelte 5's runes system (`$state`, `$derived`, `$effect`) is a significant DX improvement over Svelte 4
+- Well-proven SvelteKit + FastAPI + Docker Compose templates already exist in the open source community (4+ GitHub starter repos found)
+- TypeScript support is first-class in Svelte 5 / SvelteKit 2
+
+The frontend serves as: file upload interface, processing queue status dashboard with real-time updates (SSE or polling), results viewer, and settings UI for API keys. SvelteKit handles all of this with far less code than React.
+
+**Key versions (Feb 2026):**
+```
+svelte: 5.51.5
+@sveltejs/kit: 2.52.2
+vite: 7.3.1
+typescript: 5.9.3
+@sveltejs/adapter-node: ^5.x    # for Docker SSR deployment
+```
+
+For Docker deployment, use `@sveltejs/adapter-node` to run SvelteKit as a Node.js server inside the container.
+
+---
+
+## Decision 3: Database — SQLite with WAL mode
+
+**Decision: SQLite with WAL mode enabled**
+
+**Rationale:**
+
+PostgreSQL running inside Docker Compose for a single-user local app is operational overhead with zero benefit. It requires its own container, its own volume management, connection pooling concerns, and adds ~200MB+ to the Docker image. It is designed for multi-user concurrent write workloads. None of those characteristics apply here.
+
+SQLite wins clearly:
+- Zero-server: runs as a library inside the FastAPI process, no additional container needed
+- WAL (Write-Ahead Logging) mode resolves the classic SQLite concurrency concern. With WAL, multiple concurrent readers never block each other or the writer. The Stack Overflow and Reddit community consensus (2025) confirms: `PRAGMA journal_mode=WAL` is the correct production setting for SQLite with async Python
+- SQLite is 35% faster than the filesystem for small BLOBs (per official SQLite benchmark), and 20% more storage-efficient — important for thumbnail/preview caching
+- `aiosqlite` (v0.22.1) provides fully async-compatible SQLite access, and `SQLModel` (combining SQLAlchemy + Pydantic) gives a clean ORM layer
+- Entire database is a single file: trivially portable, backupable with `cp`, inspectable with any SQLite browser
+- For large files (PDFs, audio, video), store on local filesystem + store metadata (path, size, checksum, processing status) in SQLite — this is the recommended pattern for blobs over ~50KB (per SQLite documentation)
+- Alembic 1.18.4 handles schema migrations cleanly on top of SQLModel/SQLAlchemy
+
+**Configuration:**
+```python
+# On connection startup
+PRAGMA journal_mode=WAL;
+PRAGMA synchronous=NORMAL;
+PRAGMA foreign_keys=ON;
+PRAGMA busy_timeout=5000;
+```
+
+---
+
+## Decision 4: Task Queue — ARQ + Redis
+
+**Decision: ARQ with Redis**
+
+**Rationale:**
+
+FastAPI `BackgroundTasks` is explicitly ruled out by FastAPI's own documentation: "If you need to perform heavy background computation, you might benefit from using other bigger tools like Celery." Critically, `BackgroundTasks` runs in the web server process, has no status tracking, loses tasks on server restart, and cannot be queried. For a file processing pipeline where users need to see "Processing... 60% complete" or "Failed: corrupted PDF", this is a non-starter.
+
+Celery is the industry workhorse but brings significant complexity: it is not async-native (requires gevent/eventlet workarounds or the new `celery[gevent]` mode), has a large dependency footprint, and the community in 2025 consistently describes it as "clunky for async" and "overkill" for single-process local deployments.
+
+ARQ (Async Redis Queue) is the right fit because:
+- Async-native: every task function is a regular `async def`, integrates with FastAPI's async code naturally
+- Requires only Redis (one extra Docker Compose service, lightweight)
+- Job status tracking built in via Redis hashes: you can query `job.status` and `job.result` at any time
+- Supports retries, timeouts, scheduled jobs, and job deferral out of the box
+- Substantially lighter than Celery; the codebase is small and auditable
+- Community consensus in 2025 (r/Python, multiple benchmarks): ARQ is the recommended choice for asyncio-native Python services
+- SAQ (Simple Async Queue) is also a valid alternative with lower latency (<5ms vs ARQ's ~500ms polling default), but ARQ has a larger community and more production references for FastAPI
+
+The architecture: FastAPI enqueues a job, returns a `job_id` immediately. The ARQ worker (same Docker service or a separate one) processes it. The frontend polls `GET /jobs/{job_id}/status` or uses Server-Sent Events for real-time updates. Redis stores the job state.
+
+**Key versions:**
+```
+arq==0.26.x   # check PyPI; actively maintained
+redis==5.x    # redis-py client
+```
+
+Docker Compose addition:
+```yaml
+redis:
+  image: redis:7-alpine
+  volumes:
+    - redis_data:/data
+```
+
+**Alternative without Redis:** If you want zero external broker, a SQLite-backed queue using `persist-queue` or a custom table with `SELECT ... FOR UPDATE SKIP LOCKED` (SQLite WAL) is viable for a single-worker local app. This eliminates the Redis container at the cost of polling-based job discovery and higher implementation complexity. ARQ + Redis is still recommended for the better DX and status tracking.
+
+---
+
+## Decision 5: File Storage — Filesystem + SQLite Metadata
+
+**Decision: Local filesystem for file bodies, SQLite for metadata**
+
+**Rationale:**
+
+Storing large files (PDFs, audio, video) as BLOBs in SQLite is not appropriate. The SQLite documentation itself recommends keeping BLOBs in the database only for items under ~50KB. A 100MB MP4 or 50MB PPTX stored as a BLOB would cause severe performance degradation, make the database file unwieldy, and complicate streaming.
+
+The correct pattern (per all major sources, including Medium, SQLite docs, and DBA Stack Exchange):
+- **File bodies** go to the local filesystem in a structured directory under a Docker volume (e.g., `/data/uploads/{year}/{month}/{file_id}/original.pdf`)
+- **Metadata** (original filename, MIME type, file path, size, checksum, upload timestamp, processing status, extracted text, AI output) stored in SQLite
+
+This gives you:
+- Full streaming support for large files (FastAPI's `FileResponse` and `StreamingResponse`)
+- Efficient random-access reads (audio seeked by timestamp, video range requests)
+- SQLite for all query/filter/search operations on metadata and processing results
+- Small blobs like thumbnails or image previews (<50KB) CAN be stored in SQLite and will actually be faster than filesystem access by 35%
+- Simple backup: `tar` the `/data` volume + copy the `.db` file
+
+**Docker volume structure:**
+```
+/data/
+  uploads/          # original files, organized by ID
+  processed/        # extracted text, transcripts, thumbnails
+  app.db            # single SQLite database
+```
+
+---
+
+## Final Architecture Summary
+
+```
+Docker Compose Services:
+  frontend (Node.js)   — SvelteKit 2 + Svelte 5 + TypeScript, port 3000
+  backend  (Python)    — FastAPI 0.129 + Uvicorn, port 8000
+  worker   (Python)    — ARQ worker process (same image as backend)
+  redis    (Redis 7)   — Job queue broker, port 6379
+
+Volumes:
+  sqlite_data         — /data/app.db (SQLite WAL)
+  file_storage        — /data/uploads/ and /data/processed/
+  redis_data          — Redis persistence
+
+Data flow:
+  1. User uploads file via SvelteKit UI
+  2. FastAPI stores file to /data/uploads/, creates DB record, enqueues ARQ job
+  3. Returns {job_id} immediately (non-blocking)
+  4. ARQ worker picks up job, runs processing pipeline:
+       PDF → pypdf 6.7.1
+       PPTX → python-pptx 1.0.2
+       DOCX → python-docx 1.2.0
+       Audio → whisper / openai Whisper API
+       Video → ffmpeg-python for extraction, then audio pipeline
+       Images → Pillow / vision API
+  5. Worker calls Anthropic/OpenAI APIs via httpx async client
+  6. Results written to SQLite, status updated in Redis
+  7. Frontend polls /jobs/{id}/status or receives SSE push
+  8. User sees results
+```
+
+---
+
+## Why Not the Alternatives
+
+| Candidate | Why Rejected |
+|---|---|
+| Go backend | Near-zero ecosystem for PDF/PPTX/DOCX/Whisper; would require Python subprocess calls anyway |
+| Node.js backend | File processing and AI libraries are Python-first; JS ecosystem for this is thin wrappers |
+| React/Next.js | Virtual DOM overhead, heavy state management boilerplate for a single-user local tool |
+| Vue 3 | No meaningful advantage over SvelteKit for this use case; slightly larger runtime |
+| PostgreSQL | Requires separate container, connection pooling, config management for zero concurrency benefit over SQLite WAL |
+| Celery | Not async-native, overcomplicated for single local worker, "clunky for asyncio" per 2025 community consensus |
+| FastAPI BackgroundTasks | No status tracking, no persistence, runs in web process, tasks lost on restart |
+| SQLite blob storage for large files | SQLite recommends filesystem for blobs >50KB; video/audio makes this untenable |
+| SAQ over ARQ | Valid alternative but smaller community, fewer production FastAPI references |</result>
+<usage>total_tokens: 37604
+tool_uses: 44
+duration_ms: 217597</usage>
+</task-notification>
+Full transcript available at: /private/tmp/claude-501/-Users-user-github-study-kit/tasks/ace3d01.output
+
+---
+
+<task-notification>
+<task-id>a3c0451</task-id>
+<status>completed</status>
+<summary>Agent "Research spaced repetition algorithm" completed</summary>
+<result>Now I have sufficient research to produce a comprehensive, structured recommendation. Let me compile everything into a definitive answer.
+
+---
+
+# Spaced Repetition Algorithm Research: Structured Summary for Study-Kit MVP
+
+## 1. SM-2 Algorithm (SuperMemo 2)
+
+### How It Works
+
+SM-2 is a deterministic scheduling algorithm developed in 1987. It operates on a simple mathematical rule: after each review, compute a new interval based on how well the user recalled the item, then schedule the next review at `today + interval` days.
+
+**Quality Rating Scale (0-5):**
+
+| Grade | Meaning |
+|-------|---------|
+| 5 | Perfect response, no hesitation |
+| 4 | Correct after slight hesitation |
+| 3 | Correct despite serious difficulty |
+| 2 | Incorrect but correct answer seemed easy |
+| 1 | Incorrect, correct answer recalled afterward |
+| 0 | Complete blackout |
+
+**Algorithm Steps:**
+
+```
+# Step 1: Update Easiness Factor
+EF' = EF + (0.1 - (5 - Q) * (0.08 + (5 - Q) * 0.02))
+EF' = max(EF', 1.3)   # floor at 1.3
+
+# Step 2: Compute new interval
+if Q < 3:             # incorrect
+    repetitions = 0
+    interval = 1
+elif repetitions == 0:
+    interval = 1
+elif repetitions == 1:
+    interval = 6
+else:
+    interval = ceil(interval * EF')
+
+# Step 3: Increment repetitions on success
+if Q >= 3:
+    repetitions += 1
+
+# Step 4: Schedule next review
+next_due = today + interval (days)
+```
+
+**Fields Required Per Card (SM-2):**
+
+| Field | Type | Default | Range | Purpose |
+|-------|------|---------|-------|---------|
+| `repetitions` | integer | 0 | 0..∞ | Consecutive correct streak |
+| `ease_factor` | float | 2.5 | 1.3..2.5 | Difficulty multiplier |
+| `interval` | integer (days) | 0 | 1..∞ | Days until next review |
+| `due_date` | date | now | - | When this card is next due |
+
+Plus review history (separate table):
+
+| Field | Type | Purpose |
+|-------|------|---------|
+| `reviewed_at` | timestamp | When the review happened |
+| `quality` | integer (0-5) | User's self-rating |
+
+**SM-2 Limitations:**
+- Fails to adapt to individual memory patterns; uses fixed mathematical rules
+- A single incorrect answer resets the card to day 1 regardless of prior mastery (no "ease hell" protection)
+- Does not model actual probability of recall
+- Handles delayed reviews poorly (if you review 10 days late, the algorithm does not know)
+
+---
+
+## 2. FSRS (Free Spaced Repetition Scheduler)
+
+### How It Works
+
+FSRS is a modern ML-derived algorithm based on the **DSR model** (Difficulty, Stability, Retrievability — a "Three-Component Model of Memory"). It was validated against millions of Anki reviews and is now the default algorithm in Anki 23.10+.
+
+**Core Memory Model:**
+
+- **Stability (S):** Real number in [0, ∞], measured in days. Represents how long it takes for retrievability to decay from 1.0 to 0.9. Higher S = longer retention.
+- **Difficulty (D):** Real number in [1, 10]. Captures inherent item complexity. Persists and is updated on each review.
+- **Retrievability (R):** Probability of recall RIGHT NOW. Computed dynamically, never stored.
+
+**Retrievability Formula (FSRS v5):**
+
+```
+R(t, S) = (1 + (19/81) * (t / S)) ^ (-0.5)
+```
+
+where `t` is days since last review and `S` is current stability. This is a power-law forgetting curve (not exponential).
+
+**Scheduling Formula:**
+
+Given a target retention rate `r_d` (typically 0.90):
+
+```
+next_interval = (S / (19/81)) * (r_d ^ (1 / -0.5) - 1)
+             = (S / (19/81)) * (r_d ^ (-2) - 1)
+```
+
+**Stability Update (on correct recall):**
+
+```
+S' = S * α(D, S, R, grade)
+```
+
+Where α is a complex function of 19 learned weight parameters (W array) trained from aggregate review data. Default parameters are provided and work well without per-user training.
+
+**Stability Update (on failure):**
+
+```
+S' = min(S_failure_formula(D, S, R), S)
+```
+
+Critically, failure does NOT reset to day 1. The card is re-scheduled conservatively based on its prior stability.
+
+**Fields Required Per Card (FSRS):**
+
+| Field | Type | Default | Range | Purpose |
+|-------|------|---------|-------|---------|
+| `stability` | float | — | [0, ∞) | Days for R to drop from 100% to 90% |
+| `difficulty` | float | — | [1, 10] | Item inherent difficulty |
+| `due_date` | date | now | — | Next scheduled review date |
+| `last_review_date` | date | null | — | Used to compute elapsed `t` for R |
+| `state` | enum | `new` | new/learning/review/relearning | Card lifecycle state |
+| `step` | integer | 0 | 0..N | Position in learning/relearning steps |
+
+Plus review history (separate table):
+
+| Field | Type | Purpose |
+|-------|------|---------|
+| `reviewed_at` | timestamp | When the review happened |
+| `rating` | integer (1-4) | Again/Hard/Good/Easy |
+| `stability_before` | float | For audit/debugging |
+| `difficulty_before` | float | For audit/debugging |
+
+Note: FSRS uses a 1-4 rating scale (Again=1, Hard=2, Good=3, Easy=4), not 0-5.
+
+---
+
+## 3. Simple Interval-Based vs. ML-Based: What Is Appropriate for MVP?
+
+| Criterion | Simple Interval (custom) | SM-2 | FSRS |
+|-----------|--------------------------|------|------|
+| Implementation complexity | Very low | Low | Medium |
+| Scheduling accuracy | Poor | Moderate | High |
+| Handles irregular reviews | No | No | Yes |
+| Handles failure gracefully | No (reset) | No (reset) | Yes (partial decay) |
+| Open-source implementations | Many | Many | Many (TypeScript, Python, Go, Rust) |
+| Mastery score available | Crude | Approximate | Native (R = probability) |
+| Requires training data | No | No | No (defaults provided) |
+| User-visible "why" | Easy | Easy | Opaque (ML weights) |
+
+**Verdict for MVP:** SM-2 is the pragmatic choice for a first version. FSRS is architecturally superior but adds complexity. However, if you are building a greenfield app in 2025, **FSRS is worth using from the start** because:
+1. Pre-trained default parameters (W array with 21 values) are published and work without any training data
+2. Open-source reference implementations exist in TypeScript/Python that can be dropped in
+3. The data model is barely more complex than SM-2 (add `stability` + `difficulty` fields; remove `ease_factor` + `repetitions`)
+4. Retrievability gives you a natural, mathematically meaningful mastery score (0.0–1.0) for free
+
+The "ML" complexity in FSRS is pre-computed; you just use the published default weight array. You are not building or training a model.
+
+---
+
+## 4. Recommendation: Use FSRS with SM-2-Compatible Simplification
+
+**Chosen Algorithm: FSRS v5 with default weights**
+
+Rationale:
+- Default W parameters trained on millions of reviews — no cold-start problem
+- Retrievability R directly maps to "knowledge rating" (0–100%) without additional formula work
+- No "ease hell" (SM-2's well-known failure mode where one hard review permanently degrades a card)
+- Scheduling 20-30% fewer reviews than SM-2 for equivalent retention
+- Graceful failure handling: a lapse doesn't destroy a mature card's progress
+
+---
+
+## 5. Complete Data Model for KnowledgeItem
+
+### Table: `knowledge_items` (one row per flashcard)
+
+```sql
+CREATE TABLE knowledge_items (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id             UUID NOT NULL REFERENCES users(id),
+    topic_id            UUID REFERENCES topics(id),        -- for "weak areas" by topic
+
+    -- Content
+    question            TEXT NOT NULL,
+    answer              TEXT NOT NULL,
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+
+    -- FSRS scheduling state
+    stability           FLOAT,           -- NULL = never reviewed (new card)
+    difficulty          FLOAT,           -- NULL = never reviewed; range [1, 10]
+    due_date            DATE NOT NULL DEFAULT CURRENT_DATE,
+    last_review_date    TIMESTAMPTZ,     -- used to compute t = days since last review
+    state               TEXT NOT NULL DEFAULT 'new',
+                                        -- 'new' | 'learning' | 'review' | 'relearning'
+    step                INTEGER NOT NULL DEFAULT 0,
+                                        -- position within learning steps sequence
+
+    -- Aggregate stats (denormalized for dashboard performance)
+    total_reviews       INTEGER NOT NULL DEFAULT 0,
+    correct_reviews     INTEGER NOT NULL DEFAULT 0,
+    lapse_count         INTEGER NOT NULL DEFAULT 0,        -- number of failures after maturity
+    streak              INTEGER NOT NULL DEFAULT 0,        -- current consecutive correct answers
+
+    updated_at          TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_ki_user_due ON knowledge_items(user_id, due_date);
+CREATE INDEX idx_ki_user_topic ON knowledge_items(user_id, topic_id);
+```
+
+### Table: `reviews` (append-only log, one row per review session)
+
+```sql
+CREATE TABLE reviews (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    knowledge_item_id   UUID NOT NULL REFERENCES knowledge_items(id),
+    user_id             UUID NOT NULL REFERENCES users(id),
+
+    reviewed_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
+    rating              SMALLINT NOT NULL,   -- 1=Again, 2=Hard, 3=Good, 4=Easy
+    was_correct         BOOLEAN NOT NULL,    -- rating >= 2 (Hard/Good/Easy are "correct")
+
+    -- FSRS state snapshot at time of this review (for debugging/optimizer)
+    stability_before    FLOAT,
+    difficulty_before   FLOAT,
+    stability_after     FLOAT,
+    difficulty_after    FLOAT,
+    scheduled_interval  INTEGER,             -- days scheduled after this review
+    elapsed_days        INTEGER              -- days since last review (t)
+);
+
+CREATE INDEX idx_reviews_item ON reviews(knowledge_item_id, reviewed_at);
+CREATE INDEX idx_reviews_user_date ON reviews(user_id, reviewed_at);
+```
+
+---
+
+## 6. Mastery Score / Knowledge Rating Formula (0-100%)
+
+### Primary Score: Retrievability (FSRS native)
+
+```
+R(t, S) = (1 + (19/81) * (t / S)) ^ (-0.5)
+
+mastery_score = R * 100   -- expressed as 0–100%
+```
+
+Where:
+- `t` = `now() - last_review_date` in fractional days
+- `S` = `stability` from the knowledge_items row
+- For `state = 'new'` (never reviewed): `mastery_score = 0`
+- For `state = 'learning'` (in initial learning steps): `mastery_score = 10 * (step / total_steps)`
+
+This score naturally decays between sessions (as memory fades) and jumps after each successful review. It is a real-time probability, making it the most honest possible "do you know this?" metric.
+
+### Weak Area Identification
+
+An item is a "weak area" when any of:
+
+```
+-- Retrievability below threshold (likely to forget)
+R < 0.70
+
+-- High difficulty (hard to learn)
+difficulty > 7.0
+
+-- High lapse rate (repeated failures after maturity)
+lapse_count > 2 AND total_reviews > 5
+
+-- Overdue and not reviewed
+due_date < CURRENT_DATE - INTERVAL '3 days'
+```
+
+For topic-level weak areas, aggregate per `topic_id`:
+
+```sql
+SELECT
+    topic_id,
+    AVG(mastery_score)          AS avg_mastery,
+    COUNT(*) FILTER (WHERE mastery_score < 70) AS weak_item_count,
+    COUNT(*)                    AS total_items
+FROM knowledge_items_with_scores  -- view computing R dynamically
+WHERE user_id = $1
+GROUP BY topic_id
+ORDER BY avg_mastery ASC;
+```
+
+### Session Scheduling Query (What to Show Next)
+
+```sql
+-- Items due now (core spaced repetition queue)
+SELECT * FROM knowledge_items
+WHERE user_id = $1
+  AND due_date <= CURRENT_DATE
+ORDER BY
+  CASE state
+    WHEN 'learning'    THEN 0   -- highest priority: active learning
+    WHEN 'relearning'  THEN 1   -- second: items just failed
+    WHEN 'review'      THEN 2   -- third: mature cards due
+    WHEN 'new'         THEN 3   -- last: introduce new material
+  END,
+  due_date ASC
+LIMIT 20;
+```
+
+### Dashboard Progress Metrics
+
+```sql
+-- Per-user summary
+SELECT
+    COUNT(*)                                           AS total_items,
+    COUNT(*) FILTER (WHERE state = 'new')              AS not_started,
+    COUNT(*) FILTER (WHERE state IN ('learning','relearning')) AS in_progress,
+    COUNT(*) FILTER (WHERE state = 'review')           AS mature,
+
+    -- Average mastery: use stored retrievability approximation
+    -- (recomputed at query time for accuracy)
+    ROUND(AVG(
+        CASE
+          WHEN stability IS NULL THEN 0
+          ELSE POWER(1 + (19.0/81) * (EXTRACT(EPOCH FROM (now() - last_review_date)) / 86400) / stability, -0.5) * 100
+        END
+    ), 1)                                              AS avg_mastery_pct,
+
+    COUNT(*) FILTER (WHERE due_date <= CURRENT_DATE)   AS due_today,
+    SUM(total_reviews)                                 AS lifetime_reviews
+FROM knowledge_items
+WHERE user_id = $1;
+```
+
+---
+
+## Summary
+
+| Decision | Choice | Rationale |
+|----------|--------|-----------|
+| Algorithm | FSRS v5 (default weights) | Best scheduling accuracy, native mastery score, no training needed |
+| Rating scale | 1-4 (Again/Hard/Good/Easy) | FSRS native, simpler than SM-2's 0-5 |
+| Mastery score | `R(t,S) = (1 + (19/81)*(t/S))^(-0.5) * 100` | Mathematically principled probability of recall |
+| Weak area threshold | `mastery_score < 70` OR `difficulty > 7` | Configurable; sensible defaults |
+| Scheduling | `due_date` column on `knowledge_items` | Simple date comparison, indexed |
+| Review log | Append-only `reviews` table | Enables future FSRS optimizer runs |
+| Key fields (FSRS) | `stability`, `difficulty`, `due_date`, `last_review_date`, `state`, `step` | Minimal set sufficient for full FSRS operation |
+| Key fields (stats) | `total_reviews`, `correct_reviews`, `lapse_count`, `streak` | Denormalized for fast dashboard queries |
+
+**Reference implementations to use directly:**
+- TypeScript: `open-spaced-repetition/fsrs-ts` (GitHub)
+- Python: `open-spaced-repetition/py-fsrs` (GitHub)
+- Both accept the W weight array and handle all state transitions, interval computation, and first-card initialization</result>
+<usage>total_tokens: 31582
+tool_uses: 31
+duration_ms: 203005</usage>
+</task-notification>
+Full transcript available at: /private/tmp/claude-501/-Users-user-github-study-kit/tasks/a3c0451.output
+
+---
+
+<task-notification>
+<task-id>a100da1</task-id>
+<status>completed</status>
+<summary>Agent "Research PKCE OAuth2 and file processing" completed</summary>
+<result>Now I have all the information needed to provide a comprehensive, structured research report. Let me compile everything.
+
+---
+
+# Research Report: PKCE OAuth2 Implementation and File Processing Pipeline
+
+---
+
+## Topic 1: PKCE OAuth2 Implementation (OpenClaw Pattern)
+
+### 1.1 Anthropic Claude API Authentication
+
+**Verdict: API Key Only — No OAuth2 Support**
+
+The Anthropic Claude API uses a simple API key mechanism. There is no OAuth2 flow for the direct Anthropic API. Authentication requires two mandatory HTTP headers on every request:
+
+```
+x-api-key: <your_api_key>
+anthropic-version: 2023-06-01
+```
+
+The "paste-flow" pattern referenced as `claude setup-token import` in the OpenClaw docs is exactly this: the user manually generates an API key from `platform.claude.com/settings/keys`, then pastes it into the CLI. There is no way to automate an OAuth2 authorization code flow against Anthropic directly. The Python SDK reads it from the `ANTHROPIC_API_KEY` environment variable automatically:
+
+```python
+from anthropic import Anthropic
+client = Anthropic()  # reads ANTHROPIC_API_KEY from environment
+```
+
+**Contrast with OpenAI/Codex**: OpenAI supports a full OAuth2 PKCE flow for third-party apps (e.g., the ChatGPT plugin/connector model), which is what the OpenClaw pattern implements for that service.
+
+---
+
+### 1.2 PKCE OAuth2 with Local Callback Server (for OpenAI/Codex side)
+
+**Recommended library stack:**
+- `authlib>=1.3.0` — handles PKCE automatically; supports both `requests` and `httpx`
+- `requests-oauthlib` — lighter alternative using `oauthlib` primitives
+- Standard library `http.server`, `threading`, `webbrowser` — for the local callback server
+
+**Complete implementation pattern:**
+
+```python
+import base64
+import hashlib
+import json
+import secrets
+import socket
+import threading
+import webbrowser
+from http.server import BaseHTTPRequestHandler, HTTPServer
+from urllib.parse import parse_qs, urlparse
+
+import httpx
+
+# ── Step 1: PKCE pair generation ──────────────────────────────────────────────
+
+def generate_pkce_pair() -> tuple[str, str]:
+    """Returns (code_verifier, code_challenge) using S256 method."""
+    # RFC 7636: verifier must be 43–128 chars of [A-Za-z0-9\-._~]
+    code_verifier = (
+        base64.urlsafe_b64encode(secrets.token_bytes(64))
+        .rstrip(b"=")
+        .decode("ascii")
+    )
+    code_challenge = (
+        base64.urlsafe_b64encode(
+            hashlib.sha256(code_verifier.encode("ascii")).digest()
+        )
+        .rstrip(b"=")
+        .decode("ascii")
+    )
+    return code_verifier, code_challenge
+
+# ── Step 2: Local callback server ─────────────────────────────────────────────
+
+def find_free_port() -> int:
+    """Bind to port 0 to let the OS assign a free ephemeral port."""
+    with socket.socket() as s:
+        s.bind(("127.0.0.1", 0))
+        return s.getsockname()[1]
+
+class _CallbackHandler(BaseHTTPRequestHandler):
+    """Captures ?code=... and ?state=... from the OAuth redirect."""
+    result: dict | None = None
+
+    def do_GET(self):
+        parsed = urlparse(self.path)
+        params = parse_qs(parsed.query)
+        _CallbackHandler.result = {
+            "code": params.get("code", [None])[0],
+            "state": params.get("state", [None])[0],
+            "error": params.get("error", [None])[0],
+        }
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html")
+        self.end_headers()
+        self.wfile.write(
+            b"<h2>Authorization complete. You may close this tab.</h2>"
+        )
+
+    def log_message(self, format, *args):  # silence access logs
+        pass
+
+def _run_callback_server(server: HTTPServer):
+    server.handle_request()  # handle exactly ONE request then exit
+    server.server_close()
+
+def pkce_login(
+    client_id: str,
+    authorization_endpoint: str,
+    token_endpoint: str,
+    scopes: list[str],
+) -> dict:
+    """
+    Full PKCE authorization code flow using a local callback server.
+    Returns the token response dict (access_token, refresh_token, expires_in, …).
+    """
+    port = find_free_port()
+    redirect_uri = f"http://127.0.0.1:{port}/auth/callback"
+
+    code_verifier, code_challenge = generate_pkce_pair()
+    state = secrets.token_urlsafe(16)
+
+    # Build the authorization URL manually (no external dependency needed)
+    params = {
+        "response_type": "code",
+        "client_id": client_id,
+        "redirect_uri": redirect_uri,
+        "scope": " ".join(scopes),
+        "state": state,
+        "code_challenge": code_challenge,
+        "code_challenge_method": "S256",
+    }
+    query = "&".join(f"{k}={v}" for k, v in params.items())
+    auth_url = f"{authorization_endpoint}?{query}"
+
+    # Start the one-shot local server before opening the browser
+    server = HTTPServer(("127.0.0.1", port), _CallbackHandler)
+    server_thread = threading.Thread(target=_run_callback_server, args=(server,), daemon=True)
+    server_thread.start()
+
+    print(f"Opening browser for authorization...")
+    webbrowser.open(auth_url)
+    server_thread.join(timeout=120)  # wait up to 2 minutes
+
+    result = _CallbackHandler.result
+    if not result or result.get("error"):
+        raise RuntimeError(f"OAuth error: {result}")
+    if result["state"] != state:
+        raise RuntimeError("State mismatch — possible CSRF attack")
+
+    # Exchange authorization code for tokens
+    response = httpx.post(
+        token_endpoint,
+        data={
+            "grant_type": "authorization_code",
+            "code": result["code"],
+            "redirect_uri": redirect_uri,
+            "client_id": client_id,
+            "code_verifier": code_verifier,  # PKCE: verifier sent here
+        },
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
+    )
+    response.raise_for_status()
+    return response.json()
+```
+
+**Using authlib instead** (cleaner, handles edge cases):
+
+```python
+from authlib.integrations.httpx_client import AsyncOAuth2Client
+
+async def pkce_login_authlib(client_id, auth_endpoint, token_endpoint, scopes):
+    port = find_free_port()
+    redirect_uri = f"http://127.0.0.1:{port}/auth/callback"
+    code_verifier = generate_token(48)  # authlib.common.security
+
+    async with AsyncOAuth2Client(
+        client_id=client_id,
+        redirect_uri=redirect_uri,
+        scope=" ".join(scopes),
+        code_challenge_method="S256",
+    ) as client:
+        uri, state = client.create_authorization_url(
+            auth_endpoint, code_verifier=code_verifier
+        )
+        webbrowser.open(uri)
+        # ... run local server, get auth_response URL ...
+        token = await client.fetch_token(
+            token_endpoint,
+            authorization_response=auth_response_url,
+            code_verifier=code_verifier,
+        )
+        return token
+```
+
+---
+
+### 1.3 Encrypted Local Credential Storage
+
+**Recommended approach: `cryptography` Fernet + machine-derived key + `portalocker`**
+
+```python
+import base64
+import json
+import os
+from pathlib import Path
+
+from cryptography.fernet import Fernet
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+
+CREDENTIALS_DIR = Path.home() / ".config" / "study-kit"
+CREDENTIALS_FILE = CREDENTIALS_DIR / "credentials.json.enc"
+SALT_FILE = CREDENTIALS_DIR / ".salt"
+
+def _get_or_create_salt() -> bytes:
+    CREDENTIALS_DIR.mkdir(parents=True, exist_ok=True)
+    if SALT_FILE.exists():
+        return SALT_FILE.read_bytes()
+    salt = os.urandom(16)
+    SALT_FILE.write_bytes(salt)
+    SALT_FILE.chmod(0o600)
+    return salt
+
+def _derive_key(password: bytes) -> bytes:
+    """Derive a Fernet key from a password + stored salt via PBKDF2."""
+    kdf = PBKDF2HMAC(
+        algorithm=hashes.SHA256(),
+        length=32,
+        salt=_get_or_create_salt(),
+        iterations=1_200_000,  # OWASP 2025 minimum
+    )
+    return base64.urlsafe_b64encode(kdf.derive(password))
+
+def _get_fernet(password: str) -> Fernet:
+    return Fernet(_derive_key(password.encode()))
+
+# Credential store: keyed by agentId
+def save_credentials(agent_id: str, token_data: dict, password: str) -> None:
+    """Encrypt and persist tokens for a given agentId."""
+    f = _get_fernet(password)
+    existing = _load_all_credentials_raw(f)
+    existing[agent_id] = token_data
+    encrypted = f.encrypt(json.dumps(existing).encode())
+    CREDENTIALS_FILE.write_bytes(encrypted)
+    CREDENTIALS_FILE.chmod(0o600)
+
+def load_credentials(agent_id: str, password: str) -> dict | None:
+    f = _get_fernet(password)
+    all_creds = _load_all_credentials_raw(f)
+    return all_creds.get(agent_id)
+
+def _load_all_credentials_raw(f: Fernet) -> dict:
+    if not CREDENTIALS_FILE.exists():
+        return {}
+    return json.loads(f.decrypt(CREDENTIALS_FILE.read_bytes()).decode())
+```
+
+**Alternative: `keyring` library** — uses the OS keychain (macOS Keychain, Windows Credential Manager, libsecret on Linux). Simpler but no agentId-organized JSON structure:
+
+```python
+import keyring
+import json
+
+def save_token_keyring(agent_id: str, token_data: dict):
+    keyring.set_password("study-kit", agent_id, json.dumps(token_data))
+
+def load_token_keyring(agent_id: str) -> dict | None:
+    val = keyring.get_password("study-kit", agent_id)
+    return json.loads(val) if val else None
+```
+
+Use `keyring` for the Anthropic API key (simple string), use Fernet-encrypted JSON for OAuth tokens (structured, multiple fields).
+
+---
+
+### 1.4 Token Refresh with File Locking
+
+**Library: `portalocker>=2.8.2`** — cross-platform (macOS/Linux/Windows), context manager API, timeout support.
+
+```python
+import time
+import portalocker
+
+LOCK_FILE = CREDENTIALS_DIR / "credentials.lock"
+TOKEN_EXPIRY_BUFFER = 300  # refresh 5 minutes before expiry
+
+def is_token_expired(token_data: dict) -> bool:
+    expires_at = token_data.get("expires_at", 0)
+    return time.time() >= (expires_at - TOKEN_EXPIRY_BUFFER)
+
+def refresh_token(
+    agent_id: str,
+    token_endpoint: str,
+    client_id: str,
+    password: str,
+) -> dict:
+    """
+    Refresh the access token using file locking to prevent concurrent refreshes
+    across multiple processes (e.g., parallel CLI invocations).
+    """
+    LOCK_FILE.parent.mkdir(parents=True, exist_ok=True)
+
+    with portalocker.Lock(str(LOCK_FILE), mode="a", timeout=30) as _lock:
+        # Re-read inside the lock; another process may have refreshed already
+        token_data = load_credentials(agent_id, password)
+        if token_data is None:
+            raise RuntimeError(f"No credentials for agent {agent_id}")
+
+        if not is_token_expired(token_data):
+            return token_data  # someone else already refreshed it
+
+        response = httpx.post(
+            token_endpoint,
+            data={
+                "grant_type": "refresh_token",
+                "refresh_token": token_data["refresh_token"],
+                "client_id": client_id,
+            },
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+        )
+        response.raise_for_status()
+        new_token = response.json()
+        new_token["expires_at"] = time.time() + new_token.get("expires_in", 3600)
+
+        save_credentials(agent_id, new_token, password)
+        return new_token
+```
+
+**Key design**: always re-read from disk after acquiring the lock ("check-then-act" inside the lock). This prevents the thundering herd problem where all processes attempt a refresh simultaneously.
+
+---
+
+### Summary: Topic 1 Library Decisions
+
+| Concern | Library | Version | Rationale |
+|---|---|---|---|
+| PKCE OAuth2 client | `authlib` | `>=1.3.0` | Handles PKCE automatically; supports sync/async via `requests` and `httpx` |
+| HTTP client for token exchange | `httpx` | `>=0.27` | Async-first, modern, plays well with authlib's `AsyncOAuth2Client` |
+| Local callback server | stdlib `http.server` + `threading` | built-in | Zero dependencies; single-request pattern is sufficient |
+| Anthropic auth | `anthropic` SDK + env var | `>=0.30` | API key only; no OAuth2 available from Anthropic |
+| Token encryption | `cryptography` Fernet | `>=43.0` | AES-128-CBC + HMAC-SHA256; PBKDF2 key derivation with 1.2M iterations |
+| OS keychain (simple keys) | `keyring` | `>=25.0` | macOS/Windows/Linux unified interface for plain API keys |
+| File locking | `portalocker` | `>=2.8.2` | Cross-platform `fcntl`/`msvcrt` wrapper; context manager; timeout support |
+
+---
+
+## Topic 2: File Processing Pipeline
+
+### 2.1 PDF Text Extraction
+
+**Benchmark results** (7,031 pages, py-pdf/benchmarks 2025):
+
+| Library | Speed (relative) | Text Accuracy | Table Support |
+|---|---|---|---|
+| `PyMuPDF` (fitz) | **Fastest** (8s vs 227s for pdfminer) | 96% | Limited |
+| `pypdfium2` | Fastest (tied) | **97%** | None |
+| `pypdf` | Fast (0.024s/page) | 96% | None |
+| `pdfplumber` | **Slowest** (~9.5s/page) | 75% | **Best** (coordinate-mapped) |
+| `pdfminer.six` | Very slow | 89% | Poor |
+
+**Decision: Use `PyMuPDF` (fitz) as primary, `pdfplumber` for table-heavy PDFs**
+
+`PyMuPDF` wins on speed (35x faster than pdfplumber) with 96% accuracy and adds OCR integration via Tesseract for scanned documents. `pdfplumber` is the only choice when you need reliable table extraction with spatial coordinates.
+
+```python
+# pip install pymupdf>=1.24.0
+import fitz  # PyMuPDF
+
+def extract_text_pymupdf(pdf_path: str) -> str:
+    doc = fitz.open(pdf_path)
+    return "\n".join(page.get_text("text") for page in doc)
+
+def extract_text_with_ocr_pymupdf(pdf_path: str) -> str:
+    """For scanned PDFs — requires tesseract installed system-wide."""
+    doc = fitz.open(pdf_path)
+    text = ""
+    for page in doc:
+        tp = page.get_textpage_ocr(dpi=300, full=True)
+        text += page.get_text(textpage=tp)
+    return text
+
+# pip install pdfplumber>=0.11.0
+import pdfplumber
+
+def extract_tables_pdfplumber(pdf_path: str) -> list[list]:
+    """Use only when the PDF contains structured tables."""
+    tables = []
+    with pdfplumber.open(pdf_path) as pdf:
+        for page in pdf.pages:
+            tables.extend(page.extract_tables())
+    return tables
+```
+
+**Library versions:**
+- `PyMuPDF>=1.24.0` (AGPL-3.0 license — check if this fits your project; commercial license available)
+- `pypdf>=4.3.0` (MIT license — if AGPL is a concern, acceptable accuracy)
+- `pdfplumber>=0.11.0` (MIT license — table extraction only)
+
+---
+
+### 2.2 PPTX Extraction
+
+**Decision: `python-pptx` — the clear standard, no viable alternatives**
+
+```python
+# pip install python-pptx>=1.0.0
+from pptx import Presentation
+
+def extract_text_pptx(pptx_path: str) -> str:
+    prs = Presentation(pptx_path)
+    slides_text = []
+    for i, slide in enumerate(prs.slides, 1):
+        slide_text = f"--- Slide {i} ---\n"
+        for shape in slide.shapes:
+            if shape.has_text_frame:
+                slide_text += shape.text_frame.text + "\n"
+            if shape.has_table:
+                for row in shape.table.rows:
+                    slide_text += "\t".join(
+                        cell.text for cell in row.cells
+                    ) + "\n"
+        slides_text.append(slide_text)
+    return "\n".join(slides_text)
+```
+
+Note: For `.ppt` (legacy binary format pre-2007), `python-pptx` does NOT work. You must use `LibreOffice` CLI conversion (`soffice --headless --convert-to pptx file.ppt`) as a preprocessing step.
+
+**Library version: `python-pptx>=1.0.0`** (MIT license)
+
+---
+
+### 2.3 DOCX Extraction
+
+**Decision: `python-docx` — standard; `mammoth` as a semantic alternative**
+
+```python
+# pip install python-docx>=1.1.0
+from docx import Document
+
+def extract_text_docx(docx_path: str) -> str:
+    doc = Document(docx_path)
+    sections = []
+    for para in doc.paragraphs:
+        if para.text.strip():
+            # Preserve heading hierarchy as context
+            prefix = "#" * int(para.style.name[-1]) + " " \
+                if para.style.name.startswith("Heading") else ""
+            sections.append(prefix + para.text)
+    return "\n".join(sections)
+```
+
+Alternative — `mammoth>=1.7.0`: converts DOCX to clean Markdown/HTML preserving semantic structure (headings, lists, bold). Better for AI ingestion:
+
+```python
+# pip install mammoth>=1.7.0
+import mammoth
+
+def extract_markdown_docx(docx_path: str) -> str:
+    with open(docx_path, "rb") as f:
+        result = mammoth.convert_to_markdown(f)
+    return result.value  # Clean markdown string
+```
+
+**Library versions:**
+- `python-docx>=1.1.0` (MIT) — for raw text/structural access
+- `mammoth>=1.7.0` (MIT) — preferred for AI ingestion (produces cleaner Markdown)
+
+---
+
+### 2.4 Audio/Video Transcription
+
+**Decision: `faster-whisper` with `large-v3-turbo` model**
+
+| Option | Speed | Accuracy (WER) | Memory | CPU/GPU |
+|---|---|---|---|---|
+| `openai-whisper` | Baseline (1x) | 7.4% (large-v3) | ~10GB VRAM | GPU required for speed |
+| `faster-whisper` | **4x faster** than openai-whisper | Same (uses same weights) | 2.9GB (INT8) | CPU + GPU |
+| `faster-whisper` + `large-v3-turbo` | **6x faster** than large-v3 | 7.75% (+0.35%) | ~6GB VRAM / ~3GB CPU INT8 | CPU + GPU |
+| `WhisperX` | Similar to faster-whisper | Same | Highest (runs 3 models) | GPU recommended |
+
+`faster-whisper` is the "safest default" — runs on CPU, supports Apple Silicon via CoreML backend, 4x speedup over openai-whisper, same accuracy, lower memory via INT8 quantization.
+
+```python
+# pip install faster-whisper>=1.0.3
+from faster_whisper import WhisperModel
+
+def transcribe_audio(
+    audio_path: str,
+    model_size: str = "large-v3-turbo",
+    device: str = "auto",  # "cpu", "cuda", "auto"
+    compute_type: str = "int8",  # "int8" for CPU, "float16" for GPU
+) -> str:
+    model = WhisperModel(model_size, device=device, compute_type=compute_type)
+    segments, info = model.transcribe(
+        audio_path,
+        beam_size=5,
+        vad_filter=True,          # skip silence automatically
+        vad_parameters={"min_silence_duration_ms": 500},
+    )
+    print(f"Detected language: {info.language} ({info.language_probability:.0%})")
+    return "".join(segment.text for segment in segments)
+```
+
+For video files: extract audio first with `ffmpeg-python>=0.2.0`:
+```python
+import ffmpeg
+ffmpeg.input("video.mp4").audio.output("audio.wav", ar=16000).run()
+```
+
+**Library version: `faster-whisper>=1.0.3`** (MIT license). Model: `large-v3-turbo` (809M params, 6x faster than large-v3, 7.75% WER).
+
+---
+
+### 2.5 Image OCR
+
+**Decision: EasyOCR for general use; pytesseract for clean/preprocessed images; Claude/GPT-4o vision API for complex layouts**
+
+| Option | Accuracy | Speed | Memory | Languages | Best For |
+|---|---|---|---|---|---|
+| `pytesseract` | High on clean images | Fast | Low (CPU) | 100+ | Clean, high-contrast, deskewed scans |
+| `easyocr` | Better on noisy/tilted | Moderate | 1-2GB GPU | 80+ | Messy layouts, natural images, handwriting |
+| Vision API (Claude/GPT-4o) | Highest | API latency | None local | Any | Complex documents, mixed content, low-volume |
+
+```python
+# pip install easyocr>=1.7.2
+import easyocr
+
+reader = easyocr.Reader(["en"])  # initialize once, reuse across files
+
+def extract_text_easyocr(image_path: str) -> str:
+    results = reader.readtext(image_path, detail=0, paragraph=True)
+    return "\n".join(results)
+
+# pip install pytesseract>=0.3.10 Pillow>=10.0
+import pytesseract
+from PIL import Image
+
+def extract_text_tesseract(image_path: str) -> str:
+    """Best after preprocessing (grayscale, denoise, deskew)."""
+    img = Image.open(image_path).convert("L")  # grayscale
+    return pytesseract.image_to_string(img, config="--oem 3 --psm 6")
+```
+
+**Recommendation**: Use `easyocr` as the default (handles real-world image quality), fall back to the Claude vision API for documents where OCR fails (mixed content, charts, forms with complex layout). Do not use the vision API for high-volume local processing.
+
+**Library versions:**
+- `easyocr>=1.7.2` (Apache-2.0)
+- `pytesseract>=0.3.10` (Apache-2.0) — requires system `tesseract` binary
+
+---
+
+### 2.6 Text Chunking for AI
+
+**Decision: Recursive character splitting with 512-token chunks, 10-15% overlap**
+
+Research from multiple 2025 RAG benchmarks shows:
+
+| Strategy | Accuracy | Complexity | Best For |
+|---|---|---|---|
+| Fixed-size | Baseline | Low | Simple uniform text |
+| **Recursive** | Good | Low-Medium | **General documents (recommended default)** |
+| Semantic | Best (+70% vs fixed) | High | Technical/academic papers |
+| Hierarchical | Best for long docs | Medium | Manuals, reports |
+
+**Recommended defaults: 512 tokens, 50-75 token overlap (10-15%)**
+
+```python
+# pip install langchain-text-splitters>=0.3.0 tiktoken>=0.7.0
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+import tiktoken
+
+def chunk_text(
+    text: str,
+    chunk_size: int = 512,    # tokens
+    chunk_overlap: int = 64,  # ~12.5% overlap
+    model: str = "gpt-4",
+) -> list[str]:
+    """
+    Chunk extracted text for AI ingestion.
+    Uses tiktoken for accurate token counting.
+    """
+    enc = tiktoken.encoding_for_model(model)
+
+    splitter = RecursiveCharacterTextSplitter(
+        chunk_size=chunk_size,
+        chunk_overlap=chunk_overlap,
+        length_function=lambda t: len(enc.encode(t)),
+        separators=["\n\n", "\n", ". ", "! ", "? ", " ", ""],
+    )
+    return splitter.split_text(text)
+
+
+# Document-type-aware chunking
+def chunk_document(text: str, doc_type: str) -> list[str]:
+    if doc_type == "slide":  # PPTX — already chunked by slide separator
+        return [s.strip() for s in text.split("--- Slide") if s.strip()]
+    elif doc_type == "markdown":  # DOCX converted via mammoth
+        splitter = RecursiveCharacterTextSplitter(
+            chunk_size=512,
+            chunk_overlap=64,
+            separators=["## ", "# ", "\n\n", "\n", ". "],
+        )
+        return splitter.split_text(text)
+    else:  # PDF, audio transcript
+        return chunk_text(text)
+```
+
+**Guidance by format:**
+- **PDF**: 512 tokens, 64 overlap, recursive splitting
+- **PPTX**: Split naturally on slide boundaries; each slide = one chunk if under 512 tokens
+- **DOCX**: Split on heading boundaries first (mammoth Markdown output), then recursive within sections
+- **Audio transcript**: 512 tokens with larger overlap (128 tokens) — speech lacks hard sentence structure
+- **Images (OCR output)**: Same as PDF plain text
+
+---
+
+### Summary: Topic 2 Library Decisions
+
+| File Type | Library | Version | License | Rationale |
+|---|---|---|---|---|
+| PDF (text) | `PyMuPDF` (fitz) | `>=1.24.0` | AGPL-3.0 | 35x faster than pdfplumber, 96% accuracy, OCR integration |
+| PDF (tables) | `pdfplumber` | `>=0.11.0` | MIT | Only tool with reliable spatial table extraction |
+| PDF (license-safe alt) | `pypdf` | `>=4.3.0` | MIT | 96% accuracy, MIT license, slower than PyMuPDF |
+| PPTX | `python-pptx` | `>=1.0.0` | MIT | Industry standard; only Python PPTX library |
+| PPT (legacy) | LibreOffice CLI → `python-pptx` | system | LGPL | No pure-Python .ppt reader exists |
+| DOCX (raw) | `python-docx` | `>=1.1.0` | MIT | Standard; full structural access |
+| DOCX (AI ingest) | `mammoth` | `>=1.7.0` | MIT | Produces clean Markdown; preferred for LLM ingestion |
+| Audio/Video | `faster-whisper` | `>=1.0.3` | MIT | 4x faster than openai-whisper, CPU+GPU, same accuracy |
+| Audio (model) | `large-v3-turbo` | — | MIT | 6x faster than large-v3, 7.75% WER, 809M params |
+| Video audio extract | `ffmpeg-python` | `>=0.2.0` | Apache-2.0 | Wraps ffmpeg for audio extraction pre-transcription |
+| OCR (general) | `easyocr` | `>=1.7.2` | Apache-2.0 | Deep-learning; handles noisy/tilted/real-world images |
+| OCR (clean scans) | `pytesseract` | `>=0.3.10` | Apache-2.0 | Fastest on preprocessed images; 100+ languages |
+| Text chunking | `langchain-text-splitters` | `>=0.3.0` | MIT | RecursiveCharacterTextSplitter + tiktoken counting |
+| Token counting | `tiktoken` | `>=0.7.0` | MIT | Accurate token counting for OpenAI/Claude models |</result>
+<usage>total_tokens: 44430
+tool_uses: 40
+duration_ms: 296405</usage>
+</task-notification>
+Full transcript available at: /private/tmp/claude-501/-Users-user-github-study-kit/tasks/a100da1.output
+
+---
+
+This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation.
+
+Analysis:
+Let me chronologically analyze the conversation to create a comprehensive summary.
+
+1. **Constitution creation** - User ran `/speckit.constitution` with Russian quality principles covering Security/Privacy, Performance, Scalability, Backward Compatibility, Explicitness, UX Consistency, Testability, and Code Writing Standards (no duplication, simplicity, commenting, full variable names, block separation, config isolation, error handling).
+
+2. **MUST → Russian replacement** - User asked to replace "MUST" with Russian equivalent. I asked a clarifying question about which Russian word to use (НЕОБХОДИМО, ДОЛЖЕН, ОБЯЗАН, ТРЕБУЕТСЯ). User chose ОБЯЗАН/ОБЯЗАНА/ОБЯЗАНЫ. I then replaced all MUST with gender-appropriate ОБЯЗАН/ОБЯЗАНА/ОБЯЗАНЫ and MUST NOT with ЗАПРЕЩЕНО.
+
+3. **Feature specification** - User ran `/speckit.specify` with a long Russian description of an AI study platform. I:
+   - Generated branch name "ai-study-platform"
+   - Ran the create-new-feature.sh script → created branch `001-ai-study-platform`
+   - Wrote spec.md with 6 user stories, 13 FRs, 7 success criteria, 1 NEEDS CLARIFICATION (OAuth mechanism)
+   - Created checklists/requirements.md
+
+4. **OAuth clarification** - User said "OAuth2-поток делаем, как в OpenClaw". I researched OpenClaw online and found their OAuth2 implementation (PKCE + local callback for OpenAI, setup-token for Anthropic). Updated spec to reflect this pattern, removed NEEDS CLARIFICATION marker.
+
+5. **Implementation plan** - User ran `/speckit.plan`. I:
+   - Ran setup-plan.sh → got plan.md path
+   - Dispatched 3 parallel research agents:
+     - Tech stack → FastAPI + SvelteKit + SQLite WAL + ARQ/Redis
+     - OAuth2 + file processing → PKCE, Fernet, faster-whisper, PyMuPDF, etc.
+     - Spaced repetition → FSRS v5 recommended over SM-2
+   - Wrote: research.md, data-model.md, contracts/openapi.yaml, quickstart.md, plan.md
+   - Ran update-agent-context.sh claude → created CLAUDE.md
+
+Key files created:
+- `.specify/memory/constitution.md` (v1.0.1)
+- `specs/001-ai-study-platform/spec.md`
+- `specs/001-ai-study-platform/checklists/requirements.md`
+- `specs/001-ai-study-platform/plan.md`
+- `specs/001-ai-study-platform/research.md`
+- `specs/001-ai-study-platform/data-model.md`
+- `specs/001-ai-study-platform/contracts/openapi.yaml`
+- `specs/001-ai-study-platform/quickstart.md`
+- `CLAUDE.md` (agent context)
+
+Current state: `/speckit.plan` completed successfully. The next step mentioned in the plan is `/speckit.tasks`.
+
+Summary:
+1. Primary Request and Intent:
+   The user performed a complete project setup workflow for an open-source AI study platform using the speckit toolchain:
+   - Created a project constitution with Russian quality principles (Security/Privacy, Performance, Scalability, Backward Compatibility, Explicitness, UX Consistency, Testability) and Code Writing Standards (8 principles)
+   - Replaced the English normative marker "MUST" with the Russian word "ОБЯЗАН/ОБЯЗАНА/ОБЯЗАНЫ" (gender-agreed), and "MUST NOT" with "ЗАПРЕЩЕНО"
+   - Created a feature specification (`/speckit.specify`) for a local-first AI-powered study platform supporting any file format, AI agent connection via OAuth2, workspace/lesson organization, FSRS-scheduled flashcards, progress dashboard, and gamified learning
+   - Resolved the OAuth2 implementation question: "OAuth2-поток делаем, как в OpenClaw" — use the OpenClaw pattern (PKCE for OpenAI, setup-token paste-flow for Anthropic)
+   - Ran `/speckit.plan` to generate full implementation planning artifacts including research, data model, API contracts, quickstart, and agent context file
+
+2. Key Technical Concepts:
+   - **speckit toolchain**: `/speckit.constitution`, `/speckit.specify`, `/speckit.plan`, `/speckit.tasks` workflow
+   - **Constitution**: Project governance document (`v1.0.1`) with 7 quality principles + 8 code standards
+   - **OpenClaw OAuth2 pattern**: PKCE OAuth2 with local callback server (`http://127.0.0.1:<port>/auth/callback`) for OpenAI/Codex; `claude setup-token` paste-flow for Anthropic
+   - **FSRS v5** (Free Spaced Repetition Scheduler): chosen over SM-2; mastery score formula `R(t,S) = (1 + (19/81)*(t/S))^(-0.5) * 100%`
+   - **Tech stack**: Python 3.12 + FastAPI 0.129 (backend), SvelteKit 2 + Svelte 5 + TypeScript (frontend), SQLite WAL + SQLModel + aiosqlite (database), ARQ 0.26 + Redis 7 (task queue)
+   - **File processing pipeline**: PyMuPDF (PDF), python-pptx (PPTX), mammoth (DOCX→Markdown), faster-whisper large-v3-turbo (audio/video), easyocr (images), RecursiveCharacterTextSplitter 512 tokens (chunking)
+   - **Token encryption**: Fernet (AES-128-CBC) + PBKDF2 (1.2M iterations, OWASP 2025) + portalocker for concurrent access
+   - **Docker Compose**: 4 services — frontend (Node.js), backend (Python), worker (Python), redis
+   - **Branch**: `001-ai-study-platform`
+   - **Alembic**: database migrations for SQLite schema management
+
+3. Files and Code Sections:
+   - **`.specify/memory/constitution.md`** (version 1.0.1)
+     - Initial population from template, then PATCH update replacing MUST→ОБЯЗАН/ОБЯЗАНА/ОБЯЗАНЫ and MUST NOT→ЗАПРЕЩЕНО
+     - Contains 7 Quality Principles + 8 Code Writing Standards + Governance section
+     - Version bumped: template → 1.0.0 (initial), then 1.0.0 → 1.0.1 (MUST replacement)
+   
+   - **`specs/001-ai-study-platform/spec.md`**
+     - Created via `create-new-feature.sh --json --number 1 --short-name "ai-study-platform"`
+     - 6 User Stories (3×P1, 2×P2, 1×P3), 13 Functional Requirements, 7 Success Criteria
+     - Design Decisions section (replacing NEEDS CLARIFICATION Q1): OpenClaw OAuth2 pattern table
+     - Key assumption: Anthropic API has NO OAuth2 support — only API key paste-flow
+   
+   - **`specs/001-ai-study-platform/checklists/requirements.md`**
+     - Spec quality checklist, all 14 items ✅ after OAuth clarification
+   
+   - **`specs/001-ai-study-platform/research.md`**
+     - All technical unknowns resolved from 3 parallel research agents
+     - Decisions table: FastAPI, SvelteKit, SQLite WAL, ARQ, PKCE OAuth2, FSRS v5, PyMuPDF, faster-whisper
+   
+   - **`specs/001-ai-study-platform/data-model.md`**
+     - 8 tables: `workspaces`, `lessons`, `source_files`, `knowledge_items`, `learning_sessions`, `performance_records`, `agent_configs`, `processing_jobs`
+     - FSRS fields on knowledge_items: `stability`, `difficulty`, `due_date`, `last_review_date`, `state`, `step`
+     - Mastery score computed at runtime (not stored): `pow(1 + (19/81)*(elapsed_days/stability), -0.5) * 100`
+     - Indexing plan table covering all critical query paths
+   
+   - **`specs/001-ai-study-platform/contracts/openapi.yaml`**
+     - Full OpenAPI 3.1.0 spec with all REST endpoints
+     - Groups: Agent Management, Workspaces, Lessons, Files, Processing Jobs, Knowledge Items, Learning Sessions, Dashboard, Chat
+     - Base URL: `http://localhost:8000/api/v1`
+     - Standardized `ErrorResponse: {error, message, details}` schema
+   
+   - **`specs/001-ai-study-platform/quickstart.md`**
+     - 8-step guide: prerequisites → clone → .env → `docker compose up` → connect agent → create workspace → upload files → start session
+     - Troubleshooting table for common issues
+   
+   - **`specs/001-ai-study-platform/plan.md`**
+     - Complete implementation plan with Technical Context, Constitution Check (all 7 principles ✅), Project Structure, Phase 0 & 1 summaries
+     - Source code directory tree: `backend/src/{main.py, config.py, database.py, models/, api/, services/, processing/, utilities/}` + `frontend/src/{lib/, routes/}`
+   
+   - **`CLAUDE.md`** (auto-generated by update-agent-context.sh)
+     - Created from agent-file-template.md with project tech stack info
+
+4. Errors and Fixes:
+   - **`Write` tool error on spec.md**: First attempt to write spec.md failed with "File has not been read yet." because the file was created by the shell script but not yet read by the tool. Fixed by reading the file first with the `Read` tool, then using `Write` to overwrite.
+   - **`Edit` tool error — string not found**: When trying to replace the "Open Questions" section in spec.md after OAuth clarification, the exact string didn't match (due to minor whitespace differences). Fixed by using `Read` to see the actual content at the relevant lines, then constructing the correct `old_string` for the `Edit` call.
+
+5. Problem Solving:
+   - **OAuth mechanism ambiguity**: User mentioned "OAuth authorization" but Anthropic API doesn't support OAuth2. Research revealed OpenClaw's actual implementation: PKCE for OpenAI, API-key paste-flow for Anthropic. Spec and plan updated accordingly.
+   - **Russian gender agreement for MUST**: English "MUST" is gender-neutral. Russian requires gender agreement (ОБЯЗАН/ОБЯЗАНА/ОБЯЗАНЫ/ОБЯЗАНО). Went through every occurrence in the constitution and applied correct form based on the grammatical subject.
+   - **MUST NOT translation**: Rather than "НЕ ОБЯЗАН" (which means "not obligated to"), used "ЗАПРЕЩЕНО" (prohibited/forbidden) — an impersonal form avoiding gender agreement complexity while preserving the normative strength.
+   - **Research parallelization**: Dispatched 3 background agents simultaneously for tech stack, OAuth+file processing, and spaced repetition research — collected all results before writing artifacts.
+
+6. All User Messages:
+   - `/speckit.constitution` with full Russian principles text (quality principles + code writing standards)
+   - "Давай заменим слово MUST на русское" (Let's replace the word MUST with Russian)
+   - Selected "ОБЯЗАН / ОБЯЗАНА / ОБЯЗАНЫ" from the options presented
+   - `/speckit.specify` with long Russian voice-transcribed description of AI study app
+   - "OAuth2-поток делаем, как в OpenClaw" (We'll do OAuth2 flow like in OpenClaw)
+   - `/speckit.plan` (empty args — run on current feature branch)
+   - (Summary request — current message)
+
+7. Pending Tasks:
+   - **`/speckit.tasks`**: Generate actionable, dependency-ordered `tasks.md` for the `001-ai-study-platform` feature based on the completed design artifacts (spec.md, plan.md, research.md, data-model.md, contracts/)
+
+8. Current Work:
+   The `/speckit.plan` command was just completed for branch `001-ai-study-platform`. All Phase 0 and Phase 1 artifacts were generated:
+   - `research.md` — all technical unknowns resolved
+   - `data-model.md` — 8-table SQLite schema with FSRS fields and indexing plan
+   - `contracts/openapi.yaml` — full OpenAPI 3.1.0 REST contract
+   - `quickstart.md` — deployment and first-use guide
+   - `plan.md` — complete implementation plan with Constitution Check (all 7 principles ✅)
+   - `CLAUDE.md` — agent context file created via `update-agent-context.sh claude`
+   
+   The plan's final note states: "Все 7 принципов соблюдены. Нарушений нет. Переходим к /speckit.tasks."
+
+9. Optional Next Step:
+   Run `/speckit.tasks` to generate `specs/001-ai-study-platform/tasks.md` — an actionable, dependency-ordered task list based on the completed design artifacts. This is explicitly indicated in plan.md: "Переходим к /speckit.tasks" and is the natural next step in the speckit workflow (spec → plan → **tasks** → implement).
+
+If you need specific details from before compaction (like exact code snippets, error messages, or content you generated), read the full transcript at: /Users/user/.REDACTED.jsonl
+Please continue the conversation from where we left off without asking the user any further questions. Continue with the last task that you were asked to work on.
+
+---
+
+## User Input
+
+```text
+
+```
+
+You **MUST** consider the user input before proceeding (if not empty).
+
+## Outline
+
+1. **Setup**: Run `.specify/scripts/bash/check-prerequisites.sh --json` from repo root and parse FEATURE_DIR and AVAILABLE_DOCS list. All paths must be absolute. For single quotes in args like "I'm Groot", use escape syntax: e.g 'I'\''m Groot' (or double-quote if possible: "I'm Groot").
+
+2. **Load design documents**: Read from FEATURE_DIR:
+   - **Required**: plan.md (tech stack, libraries, structure), spec.md (user stories with priorities)
+   - **Optional**: data-model.md (entities), contracts/ (API endpoints), research.md (decisions), quickstart.md (test scenarios)
+   - Note: Not all projects have all documents. Generate tasks based on what's available.
+
+3. **Execute task generation workflow**:
+   - Load plan.md and extract tech stack, libraries, project structure
+   - Load spec.md and extract user stories with their priorities (P1, P2, P3, etc.)
+   - If data-model.md exists: Extract entities and map to user stories
+   - If contracts/ exists: Map endpoints to user stories
+   - If research.md exists: Extract decisions for setup tasks
+   - Generate tasks organized by user story (see Task Generation Rules below)
+   - Generate dependency graph showing user story completion order
+   - Create parallel execution examples per user story
+   - Validate task completeness (each user story has all needed tasks, independently testable)
+
+4. **Generate tasks.md**: Use `.specify/templates/tasks-template.md` as structure, fill with:
+   - Correct feature name from plan.md
+   - Phase 1: Setup tasks (project initialization)
+   - Phase 2: Foundational tasks (blocking prerequisites for all user stories)
+   - Phase 3+: One phase per user story (in priority order from spec.md)
+   - Each phase includes: story goal, independent test criteria, tests (if requested), implementation tasks
+   - Final Phase: Polish & cross-cutting concerns
+   - All tasks must follow the strict checklist format (see Task Generation Rules below)
+   - Clear file paths for each task
+   - Dependencies section showing story completion order
+   - Parallel execution examples per story
+   - Implementation strategy section (MVP first, incremental delivery)
+
+5. **Report**: Output path to generated tasks.md and summary:
+   - Total task count
+   - Task count per user story
+   - Parallel opportunities identified
+   - Independent test criteria for each story
+   - Suggested MVP scope (typically just User Story 1)
+   - Format validation: Confirm ALL tasks follow the checklist format (checkbox, ID, labels, file paths)
+
+Context for task generation: 
+
+The tasks.md should be immediately executable - each task must be specific enough that an LLM can complete it without additional context.
+
+## Task Generation Rules
+
+**CRITICAL**: Tasks MUST be organized by user story to enable independent implementation and testing.
+
+**Tests are OPTIONAL**: Only generate test tasks if explicitly requested in the feature specification or if user requests TDD approach.
+
+### Checklist Format (REQUIRED)
+
+Every task MUST strictly follow this format:
+
+```text
+- [ ] [TaskID] [P?] [Story?] Description with file path
+```
+
+**Format Components**:
+
+1. **Checkbox**: ALWAYS start with `- [ ]` (markdown checkbox)
+2. **Task ID**: Sequential number (T001, T002, T003...) in execution order
+3. **[P] marker**: Include ONLY if task is parallelizable (different files, no dependencies on incomplete tasks)
+4. **[Story] label**: REQUIRED for user story phase tasks only
+   - Format: [US1], [US2], [US3], etc. (maps to user stories from spec.md)
+   - Setup phase: NO story label
+   - Foundational phase: NO story label  
+   - User Story phases: MUST have story label
+   - Polish phase: NO story label
+5. **Description**: Clear action with exact file path
+
+**Examples**:
+
+- ✅ CORRECT: `- [ ] T001 Create project structure per implementation plan`
+- ✅ CORRECT: `- [ ] T005 [P] Implement authentication middleware in src/middleware/auth.py`
+- ✅ CORRECT: `- [ ] T012 [P] [US1] Create User model in src/models/user.py`
+- ✅ CORRECT: `- [ ] T014 [US1] Implement UserService in src/services/user_service.py`
+- ❌ WRONG: `- [ ] Create User model` (missing ID and Story label)
+- ❌ WRONG: `T001 [US1] Create model` (missing checkbox)
+- ❌ WRONG: `- [ ] [US1] Create User model` (missing Task ID)
+- ❌ WRONG: `- [ ] T001 [US1] Create model` (missing file path)
+
+### Task Organization
+
+1. **From User Stories (spec.md)** - PRIMARY ORGANIZATION:
+   - Each user story (P1, P2, P3...) gets its own phase
+   - Map all related components to their story:
+     - Models needed for that story
+     - Services needed for that story
+     - Endpoints/UI needed for that story
+     - If tests requested: Tests specific to that story
+   - Mark story dependencies (most stories should be independent)
+
+2. **From Contracts**:
+   - Map each contract/endpoint → to the user story it serves
+   - If tests requested: Each contract → contract test task [P] before implementation in that story's phase
+
+3. **From Data Model**:
+   - Map each entity to the user story(ies) that need it
+   - If entity serves multiple stories: Put in earliest story or Setup phase
+   - Relationships → service layer tasks in appropriate story phase
+
+4. **From Setup/Infrastructure**:
+   - Shared infrastructure → Setup phase (Phase 1)
+   - Foundational/blocking tasks → Foundational phase (Phase 2)
+   - Story-specific setup → within that story's phase
+
+### Phase Structure
+
+- **Phase 1**: Setup (project initialization)
+- **Phase 2**: Foundational (blocking prerequisites - MUST complete before user stories)
+- **Phase 3+**: User Stories in priority order (P1, P2, P3...)
+  - Within each story: Tests (if requested) → Models → Services → Endpoints → Integration
+  - Each phase should be a complete, independently testable increment
+- **Final Phase**: Polish & Cross-Cutting Concerns
+
+---
+
+Напиши сообщение для коммита

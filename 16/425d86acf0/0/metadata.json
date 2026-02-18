@@ -1,0 +1,42 @@
+{
+  "cli_version": "0.4.5",
+  "checkpoint_id": "16425d86acf0",
+  "session_id": "4abc1ce6-5d8d-47a0-865f-701346364230",
+  "strategy": "manual-commit",
+  "created_at": "2026-02-18T20:50:32.635786Z",
+  "branch": "001-ai-study-platform",
+  "checkpoints_count": 4,
+  "files_touched": [
+    "CLAUDE.md",
+    "specs/001-ai-study-platform/checklists/requirements.md",
+    "specs/001-ai-study-platform/contracts/openapi.yaml",
+    "specs/001-ai-study-platform/data-model.md",
+    "specs/001-ai-study-platform/plan.md",
+    "specs/001-ai-study-platform/quickstart.md",
+    "specs/001-ai-study-platform/research.md",
+    "specs/001-ai-study-platform/spec.md",
+    "specs/001-ai-study-platform/tasks.md"
+  ],
+  "agent": "Claude Code",
+  "turn_id": "2066a5370d6d",
+  "transcript_identifier_at_start": "6b94a1da-069a-456e-b62e-d6753ac7771a",
+  "checkpoint_transcript_start": 71,
+  "transcript_lines_at_start": 71,
+  "token_usage": {
+    "input_tokens": 62,
+    "cache_creation_tokens": 214771,
+    "cache_read_tokens": 4348948,
+    "output_tokens": 23351,
+    "api_call_count": 44
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-02-18T20:50:32.253928Z",
+    "agent_lines": 2220,
+    "human_added": 661,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 2881,
+    "agent_percentage": 77.05657757723013
+  },
+  "transcript_path": ".claude/projects/-Users-user-github-study-kit/4abc1ce6-5d8d-47a0-865f-701346364230.jsonl"
+}
