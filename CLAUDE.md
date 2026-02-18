@@ -27,4 +27,14 @@ Python 3.12 (backend), Node.js 22 LTS (frontend build): Follow standard conventi
 - 001-ai-study-platform: Added Python 3.12 (backend), Node.js 22 LTS (frontend build)
 
 <!-- MANUAL ADDITIONS START -->
+
+## Documentation Language
+
+All README.md files and documentation MUST be written in **Russian (ru-RU)**.
+This applies to: README.md, docs/, quickstart guides, API docs, and any other
+user-facing documentation files.
+
+Code comments and identifiers remain in their natural language (English for
+libraries/frameworks, Russian for domain-specific comments per constitution).
+
 <!-- MANUAL ADDITIONS END -->
